@@ -1,0 +1,2684 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>🎡 La Roue des Éducateurs — APPS v3</title>
+<!--
+  ╔═══════════════════════════════════════════════════════════╗
+  ║  LA ROUE DES ÉDUCATEURS — v3  (APPS Bruxelles)           ║
+  ║                                                           ║
+  ║  UTILISATION :                                            ║
+  ║  → URL normale      : Interface Animateur (PC)            ║
+  ║  → URL + ?display=1 : Écran de projection                 ║
+  ║  → URL + ?mobile=1  : Interface tablette/mobile           ║
+  ║                                                           ║
+  ║  Les 3 fenêtres doivent être dans le MÊME navigateur.    ║
+  ║  Chrome ou Edge recommandés.                              ║
+  ╚═══════════════════════════════════════════════════════════╝
+-->
+<link href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Nunito:wght@700;800;900&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ════════════════════════════════════════════════════════════
+   RESET & VARIABLES
+════════════════════════════════════════════════════════════ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{font-family:'Nunito','Segoe UI',Arial,sans-serif;color:#fff}
+input,textarea,button,select{font-family:inherit}
+button{cursor:pointer}
+
+:root{
+  --teal:#00AAAF;--teal-d:#007880;
+  --orange:#F7941D;--green:#8DC63F;--green-d:#5A9010;
+  --pink:#E91E8C;--gold:#FFD700;--gold-d:#C8A000;
+  --purple:#7C3AED;--red:#DC2626;--blue:#3B82F6;
+  --navy:#030911;--navy2:#06111F;--navy3:#0A1A2E;
+}
+
+/* ── OVERLAYS GLOBAUX ── */
+#cfCvs{position:fixed;inset:0;pointer-events:none;z-index:9999}
+#bankFlash{
+  position:fixed;inset:0;background:rgba(220,38,38,.5);
+  z-index:9998;pointer-events:none;display:none;
+}
+#audioUnlock{
+  position:fixed;bottom:10px;right:10px;z-index:9997;
+  background:rgba(0,170,175,.15);border:1px solid rgba(0,170,175,.3);
+  border-radius:50px;padding:6px 14px;font-size:.65rem;color:var(--teal);
+  cursor:pointer;display:none;
+}
+
+/* ════════════════════════════════════════════════════════════
+   ÉCRAN DE PROJECTION — display=1
+════════════════════════════════════════════════════════════ */
+#displayApp{
+  display:none;flex-direction:column;
+  width:100vw;height:100vh;
+  background:var(--navy);overflow:hidden;position:relative;
+}
+#displayApp::before{
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background:
+    radial-gradient(ellipse 80% 30% at 50% 0%,rgba(255,215,0,.055) 0%,transparent 60%),
+    radial-gradient(ellipse 40% 60% at 5% 20%,rgba(0,170,175,.04) 0%,transparent 55%),
+    radial-gradient(ellipse 40% 60% at 95% 20%,rgba(247,148,29,.035) 0%,transparent 55%);
+}
+#displayApp>*{position:relative;z-index:1}
+
+/* En-tête display */
+.d-hdr{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 28px 7px;flex-shrink:0;
+  border-bottom:1px solid rgba(255,215,0,.06);
+}
+.d-title{
+  font-family:'Abril Fatface','Georgia',serif;
+  font-size:clamp(.9rem,2vw,1.55rem);
+  background:linear-gradient(135deg,#fff 0%,var(--gold) 50%,var(--orange) 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.d-sub{font-size:.5rem;color:rgba(255,255,255,.22);text-transform:uppercase;letter-spacing:2px;margin-top:2px}
+.d-cat{
+  padding:5px 18px;border-radius:50px;
+  background:rgba(0,170,175,.1);border:1px solid rgba(0,170,175,.28);
+  font-family:'Oswald',sans-serif;font-size:.78rem;letter-spacing:2px;
+  color:var(--teal);text-transform:uppercase;text-align:center;
+}
+.d-pips{display:flex;gap:5px}
+.d-pip{
+  width:26px;height:26px;border-radius:50%;
+  border:2px solid rgba(255,255,255,.07);
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Oswald',sans-serif;font-size:.68rem;color:rgba(255,255,255,.16);
+  transition:all .4s;
+}
+.d-pip.done{background:rgba(0,170,175,.15);border-color:var(--teal);color:var(--teal)}
+.d-pip.active{background:rgba(255,215,0,.15);border-color:var(--gold);color:var(--gold);box-shadow:0 0 12px rgba(255,215,0,.28)}
+
+/* Zone plateau */
+.d-board-area{
+  flex:1;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  padding:10px 20px 6px;gap:9px;overflow:hidden;
+}
+.d-tried-strip{
+  display:flex;align-items:center;gap:5px;flex-wrap:wrap;
+  justify-content:center;min-height:22px;transition:opacity .3s;
+}
+.d-tried-lbl{font-size:.54rem;color:rgba(255,255,255,.2);text-transform:uppercase;letter-spacing:1.5px}
+.d-tl{
+  width:21px;height:21px;border-radius:4px;
+  border:1.5px solid rgba(255,255,255,.1);
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Oswald',sans-serif;font-size:.68rem;color:rgba(255,255,255,.3);
+}
+.d-tl.bad{border-color:rgba(232,30,140,.22);color:rgba(232,30,140,.5)}
+
+/* Plateau lettres */
+.phrase-board{
+  display:flex;flex-direction:column;align-items:center;gap:8px;
+  background:rgba(0,0,0,.3);
+  border:1.5px solid rgba(255,215,0,.08);border-radius:16px;
+  padding:18px 24px;max-width:97%;
+  box-shadow:0 0 70px rgba(0,0,0,.7),inset 0 1px 0 rgba(255,255,255,.04);
+}
+.board-row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.board-word{display:flex;gap:4px;flex-shrink:0}
+.tile{
+  width:50px;height:60px;border-radius:6px;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Oswald','Arial Narrow',sans-serif;font-size:1.75rem;font-weight:700;
+  flex-shrink:0;
+}
+.tile-h{background:rgba(5,12,28,.92);border:2px solid rgba(255,255,255,.07)}
+.tile-r{
+  background:#fff;color:var(--navy);
+  box-shadow:0 5px 15px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.8);
+  animation:flip .42s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes flip{0%{transform:rotateY(90deg) scale(.8);opacity:0}100%{transform:rotateY(0) scale(1);opacity:1}}
+.tile-p{background:transparent;border:none;color:rgba(255,255,255,.4);font-size:1.4rem;width:20px}
+.phrase-board.sm .tile{width:32px;height:40px;font-size:1.1rem}
+.phrase-board.sm .tile-p{width:13px;font-size:.9rem}
+.phrase-board.sm{padding:12px 16px;border-radius:11px;gap:6px}
+.phrase-board.sm .board-row{gap:6px}.phrase-board.sm .board-word{gap:3px}
+
+/* Timer display */
+.d-timer{
+  font-family:'Oswald',sans-serif;font-size:2.5rem;font-weight:700;
+  text-align:center;min-width:60px;
+  transition:color .3s;
+}
+.d-timer.urgent{color:var(--red);animation:pulse-timer .5s infinite}
+@keyframes pulse-timer{0%,100%{opacity:1}50%{opacity:.4}}
+.d-timer.off{opacity:0;pointer-events:none}
+
+/* Bas de l'écran */
+.d-bottom{
+  display:flex;align-items:stretch;flex-shrink:0;height:210px;
+  border-top:1px solid rgba(255,255,255,.04);
+}
+.d-wcol{width:210px;flex-shrink:0;display:flex;align-items:center;justify-content:center;padding:8px;border-right:1px solid rgba(255,255,255,.04)}
+#dWheelCvs{width:190px;height:190px;display:block}
+.d-tcol{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:12px}
+.d-tlbl{font-size:.52rem;color:rgba(255,255,255,.22);text-transform:uppercase;letter-spacing:2px}
+.d-tname{font-family:'Abril Fatface','Georgia',serif;font-size:clamp(1.2rem,2vw,1.9rem);text-align:center;transition:color .4s}
+.d-rpill{
+  padding:5px 16px;border-radius:50px;
+  font-family:'Oswald',sans-serif;font-size:.82rem;font-weight:700;letter-spacing:1px;
+  text-transform:uppercase;border:1px solid transparent;
+  opacity:0;transition:opacity .35s;display:inline-block;
+}
+.d-rpill.show{opacity:1}
+.d-msg{font-size:.76rem;color:rgba(255,255,255,.4);text-align:center;max-width:270px;min-height:1.1em;transition:opacity .3s}
+.d-scol{
+  width:225px;flex-shrink:0;padding:8px 12px;
+  display:flex;flex-direction:column;gap:3px;
+  border-left:1px solid rgba(255,255,255,.04);
+  overflow-y:auto;scrollbar-width:none;
+}
+.d-scol::-webkit-scrollbar{display:none}
+.d-srow{
+  display:flex;align-items:center;gap:5px;padding:5px 7px;
+  border-radius:7px;transition:all .3s;border:1.5px solid transparent;
+}
+.d-srow.active{border-color:var(--active-c);background:rgba(255,255,255,.04)}
+.d-sdot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.d-sname{flex:1;font-size:.7rem;font-weight:800;color:rgba(255,255,255,.68)}
+.d-srnd{font-family:'Oswald',sans-serif;font-size:.68rem;color:rgba(255,255,255,.24);min-width:30px;text-align:right}
+.d-stot{font-family:'Oswald',sans-serif;font-size:.92rem;font-weight:700;min-width:32px;text-align:right}
+
+/* Overlay cases spéciales */
+.d-ov{
+  position:fixed;inset:0;background:rgba(0,5,18,.93);
+  display:none;align-items:center;justify-content:center;z-index:50;
+  backdrop-filter:blur(8px);
+}
+.d-ov.show{display:flex}
+.d-ov-card{text-align:center;animation:ovPop .45s cubic-bezier(.34,1.56,.64,1)}
+@keyframes ovPop{from{transform:scale(.55);opacity:0}to{transform:scale(1);opacity:1}}
+.d-ov-icon{font-size:4.5rem;display:block;margin-bottom:10px}
+.d-ov-title{
+  font-family:'Abril Fatface','Georgia',serif;
+  font-size:clamp(1.8rem,4.5vw,3.2rem);
+  background:linear-gradient(135deg,#fff,var(--gold),var(--orange));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.d-ov-sub{font-size:1rem;color:rgba(255,255,255,.5);margin-top:8px;max-width:500px}
+.d-ov-caverne{
+  margin-top:16px;background:rgba(0,170,175,.1);border:1px solid rgba(0,170,175,.25);
+  border-radius:12px;padding:14px 20px;max-width:520px;
+  font-size:1.1rem;color:#fff;line-height:1.5;
+}
+
+/* Game Over */
+.d-gameover{
+  position:fixed;inset:0;background:var(--navy);
+  display:none;flex-direction:column;align-items:center;justify-content:center;
+  z-index:60;padding:20px;gap:12px;overflow-y:auto;
+}
+.d-gameover.show{display:flex}
+.go-title{
+  font-family:'Abril Fatface','Georgia',serif;font-size:clamp(1.8rem,4vw,3rem);text-align:center;
+  background:linear-gradient(120deg,var(--gold),var(--orange),var(--pink));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.podium{display:flex;align-items:flex-end;gap:8px}
+.p-col{display:flex;flex-direction:column;align-items:center;gap:5px}
+.p-block{width:90px;border-radius:8px 8px 0 0}
+.p-nm{font-size:.8rem;font-weight:800;text-align:center;max-width:92px}
+.p-sc{font-family:'Oswald',sans-serif;font-size:.92rem;color:var(--gold)}
+
+/* ════════════════════════════════════════════════════════════
+   INTERFACE ANIMATEUR — par défaut
+════════════════════════════════════════════════════════════ */
+#hostApp{display:none;flex-direction:column;width:100vw;height:100vh;background:#06111F;overflow:hidden}
+.h-hdr{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:7px 14px;background:#040E1A;
+  border-bottom:1px solid rgba(255,255,255,.05);flex-shrink:0;
+}
+.h-title{
+  font-family:'Abril Fatface','Georgia',serif;font-size:.9rem;
+  background:linear-gradient(135deg,#fff,var(--gold));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.h-sub{font-size:.5rem;color:rgba(255,255,255,.2);text-transform:uppercase;letter-spacing:1.5px;margin-top:1px}
+.h-hdr-r{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.sync-badge{
+  display:flex;align-items:center;gap:5px;
+  padding:4px 10px;border-radius:50px;
+  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);
+  font-size:.6rem;color:rgba(255,255,255,.3);
+}
+.sync-dot{width:6px;height:6px;border-radius:50%;background:#333;flex-shrink:0;transition:all .3s}
+.sync-dot.ok{background:var(--green);box-shadow:0 0 5px var(--green)}
+.sync-dot.warn{background:var(--orange);animation:blink-dot .8s infinite}
+@keyframes blink-dot{0%,100%{opacity:1}50%{opacity:.3}}
+
+.h-body{flex:1;display:flex;min-height:0}
+
+/* ── Colonnes hôte ── */
+.h-left{width:260px;flex-shrink:0;display:flex;flex-direction:column;gap:6px;padding:9px;border-right:1px solid rgba(255,255,255,.05);overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.07) transparent}
+.h-center{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;padding:12px;overflow:hidden}
+.h-right{width:285px;flex-shrink:0;display:flex;flex-direction:column;border-left:1px solid rgba(255,255,255,.05);overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.07) transparent}
+
+/* Panneaux */
+.panel{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:9px;flex-shrink:0}
+.ptitle{font-size:.53rem;text-transform:uppercase;letter-spacing:2px;color:rgba(255,255,255,.22);margin-bottom:7px}
+
+/* Roue hôte */
+#hWheelCvs{width:190px;height:190px;display:block;margin:0 auto;border-radius:50%;cursor:pointer;transition:opacity .2s}
+#hWheelCvs.spinning{cursor:wait;opacity:.7}
+#hWheelCvs.disabled{cursor:not-allowed;opacity:.4}
+.wr-badge{
+  text-align:center;padding:6px 10px;border-radius:8px;
+  font-family:'Oswald',sans-serif;font-weight:700;font-size:.95rem;
+  min-height:36px;display:flex;align-items:center;justify-content:center;
+  background:rgba(255,255,255,.04);color:rgba(255,255,255,.26);
+  transition:all .3s;margin-top:5px;border:1px solid transparent;
+}
+.force-cases{display:flex;gap:3px;flex-wrap:wrap;justify-content:center;margin-top:5px}
+
+/* Timer hôte */
+.timer-row{display:flex;align-items:center;gap:8px}
+.h-timer-disp{font-family:'Oswald',sans-serif;font-size:1.4rem;font-weight:700;color:var(--gold);min-width:45px}
+.h-timer-disp.urgent{color:var(--red)}
+
+/* Boutons */
+.btn{
+  font-family:'Nunito','Segoe UI',sans-serif;font-weight:900;
+  border:none;border-radius:50px;cursor:pointer;
+  transition:transform .1s,box-shadow .1s,opacity .1s;
+  display:inline-flex;align-items:center;justify-content:center;gap:4px;
+  white-space:nowrap;letter-spacing:.2px;
+}
+.btn:disabled{opacity:.22;cursor:not-allowed;pointer-events:none}
+.btn-xl{font-size:.88rem;padding:11px 24px}
+.btn-lg{font-size:.78rem;padding:8px 18px}
+.btn-md{font-size:.7rem;padding:6px 13px}
+.btn-sm{font-size:.62rem;padding:5px 11px}
+.btn-xs{font-size:.56rem;padding:4px 8px}
+.btn-teal{background:linear-gradient(135deg,var(--teal),var(--teal-d));color:#fff;box-shadow:0 3px 12px rgba(0,170,175,.2)}
+.btn-teal:not(:disabled):hover{transform:translateY(-1px);box-shadow:0 5px 16px rgba(0,170,175,.35)}
+.btn-gold{background:linear-gradient(135deg,var(--gold),var(--gold-d));color:#0a0800}
+.btn-gold:not(:disabled):hover{transform:translateY(-1px)}
+.btn-orange{background:linear-gradient(135deg,var(--orange),#A04400);color:#fff}
+.btn-orange:not(:disabled):hover{transform:translateY(-1px)}
+.btn-green{background:linear-gradient(135deg,var(--green),var(--green-d));color:#fff}
+.btn-green:not(:disabled):hover{transform:translateY(-1px)}
+.btn-red{background:linear-gradient(135deg,#E84040,#7A0000);color:#fff}
+.btn-red:not(:disabled):hover{transform:translateY(-1px)}
+.btn-ghost{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.62)}
+.btn-ghost:not(:disabled):hover{background:rgba(255,255,255,.12)}
+.btn-purple{background:linear-gradient(135deg,var(--purple),#3B0764);color:#fff}
+.btn-purple:not(:disabled):hover{transform:translateY(-1px)}
+.btn-blue{background:linear-gradient(135deg,var(--blue),#1D4ED8);color:#fff}
+.btn-blue:not(:disabled):hover{transform:translateY(-1px)}
+.btn-w{width:100%}
+
+/* Toggle consonne/voyelle */
+.tog-row{display:flex;gap:3px;margin-bottom:7px}
+.tog{flex:1;padding:5px 3px;border-radius:7px;text-align:center;border:1.5px solid rgba(255,255,255,.08);background:transparent;color:rgba(255,255,255,.28);font-size:.65rem;font-weight:800;transition:all .12s;cursor:pointer}
+.tog.on{background:rgba(0,170,175,.12);border-color:var(--teal);color:var(--teal)}
+
+/* Input lettre */
+.letter-inp{width:56px;background:rgba(255,255,255,.08);border:2px solid rgba(255,255,255,.16);border-radius:9px;color:#fff;font-family:'Oswald',sans-serif;font-size:1.6rem;font-weight:700;text-align:center;text-transform:uppercase;padding:5px;outline:none;transition:border-color .12s}
+.letter-inp:focus{border-color:var(--teal)}
+
+/* Hold-up team selector */
+.holdup-list{display:flex;flex-direction:column;gap:4px;margin:5px 0}
+.holdup-team-btn{
+  display:flex;align-items:center;gap:7px;padding:7px 10px;
+  border-radius:8px;border:1.5px solid rgba(255,255,255,.08);
+  background:rgba(255,255,255,.03);cursor:pointer;transition:all .12s;
+}
+.holdup-team-btn:hover{background:rgba(127,29,29,.15);border-color:rgba(232,40,40,.3)}
+.holdup-team-btn.selected{background:rgba(127,29,29,.2);border-color:rgba(232,40,40,.5)}
+.holdup-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.holdup-name{flex:1;font-size:.75rem;font-weight:800}
+.holdup-score{font-family:'Oswald',sans-serif;font-size:.82rem;color:var(--gold)}
+
+/* Équipes */
+.trow{display:flex;align-items:center;gap:5px;padding:5px 7px;border:1.5px solid rgba(255,255,255,.06);border-radius:8px;cursor:pointer;transition:all .12s;margin-bottom:3px;background:rgba(255,255,255,.025)}
+.trow:hover{background:rgba(255,255,255,.06)}
+.trow.active{border-color:rgba(255,255,255,.18);background:rgba(255,255,255,.05)}
+.tdot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.tname-inp{flex:1;background:transparent;border:none;color:#fff;font-weight:800;font-size:.73rem;outline:none;min-width:0}
+.tscore{font-family:'Oswald',sans-serif;font-size:.95rem;min-width:20px;text-align:right;font-weight:700}
+.sadj{width:17px;height:17px;border-radius:50%;border:1px solid rgba(255,255,255,.12);background:transparent;color:rgba(255,255,255,.42);font-size:.68rem;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.sadj:hover{background:rgba(255,255,255,.12)}
+
+/* Phrase editor */
+.phrase-ta{width:100%;background:rgba(255,255,255,.06);border:1.5px solid rgba(255,255,255,.12);border-radius:8px;color:#fff;font-size:.78rem;font-weight:700;text-transform:uppercase;padding:7px 9px;outline:none;resize:vertical;min-height:50px}
+.phrase-ta:focus{border-color:var(--teal)}
+.cat-inp{width:100%;background:rgba(255,255,255,.06);border:1.5px solid rgba(255,255,255,.12);border-radius:8px;color:#fff;font-size:.72rem;padding:5px 9px;outline:none}
+.cat-inp:focus{border-color:var(--teal)}
+.solve-inp{width:100%;background:rgba(255,255,255,.06);border:1.5px solid rgba(255,255,255,.12);border-radius:8px;color:#fff;font-size:.77rem;font-weight:700;text-transform:uppercase;padding:6px 9px;outline:none;margin-bottom:5px}
+.solve-inp:focus{border-color:var(--gold)}
+.mtab-row{display:flex;gap:3px;margin-bottom:7px}
+.mtab{flex:1;padding:4px 2px;border-radius:6px;border:1px solid rgba(255,255,255,.07);background:transparent;color:rgba(255,255,255,.28);font-size:.64rem;font-weight:800;cursor:pointer;transition:all .12s;text-align:center}
+.mtab.on{background:rgba(0,170,175,.12);border-color:var(--teal);color:var(--teal)}
+.rsec{padding:9px;border-bottom:1px solid rgba(255,255,255,.04)}
+.rsec-ttl{font-size:.52rem;text-transform:uppercase;letter-spacing:2px;color:rgba(255,255,255,.18);margin-bottom:6px}
+.info-line{font-size:.6rem;color:rgba(255,255,255,.28);line-height:1.5}
+.info-line b{color:var(--teal)}
+
+/* ════════════════════════════════════════════════════════════
+   INTERFACE MOBILE — mobile=1
+════════════════════════════════════════════════════════════ */
+#mobileApp{
+  display:none;flex-direction:column;align-items:center;justify-content:space-between;
+  width:100vw;height:100vh;background:var(--navy);padding:20px 16px;
+  overflow:hidden;
+}
+#mobileApp::before{
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(ellipse 80% 40% at 50% 0%,rgba(255,215,0,.06) 0%,transparent 60%);
+}
+#mobileApp>*{position:relative;z-index:1}
+.mob-header{text-align:center;width:100%}
+.mob-title{font-family:'Abril Fatface','Georgia',serif;font-size:1.4rem;background:linear-gradient(135deg,#fff,var(--gold));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.mob-subtitle{font-size:.6rem;color:rgba(255,255,255,.25);text-transform:uppercase;letter-spacing:2px;margin-top:2px}
+.mob-team{text-align:center;width:100%}
+.mob-turn-lbl{font-size:.6rem;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:2px;margin-bottom:4px}
+.mob-team-name{font-family:'Abril Fatface','Georgia',serif;font-size:2rem}
+.mob-phase-badge{font-size:.72rem;color:rgba(255,255,255,.4);margin-top:4px}
+.mob-wheel-wrap{width:100%;display:flex;justify-content:center;align-items:center;flex:1;min-height:0}
+#mWheelCvs{max-width:340px;max-height:340px;width:90vw;height:90vw;display:block}
+.mob-result{
+  text-align:center;min-height:32px;
+  font-family:'Oswald',sans-serif;font-size:1.3rem;font-weight:700;
+  transition:opacity .3s;
+}
+.mob-spin-btn{
+  width:85%;max-width:320px;height:70px;
+  background:linear-gradient(135deg,var(--teal),var(--teal-d));
+  border:none;border-radius:20px;
+  font-family:'Abril Fatface','Georgia',serif;font-size:1.6rem;color:#fff;
+  cursor:pointer;box-shadow:0 8px 30px rgba(0,170,175,.4);
+  transition:all .15s;position:relative;overflow:hidden;
+}
+.mob-spin-btn::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,.1),transparent)}
+.mob-spin-btn:not(:disabled):active{transform:scale(.96);box-shadow:0 4px 15px rgba(0,170,175,.3)}
+.mob-spin-btn:disabled{opacity:.3;cursor:not-allowed}
+
+/* ════════════════════════════════════════════════════════════
+   SCROLL & MISC
+════════════════════════════════════════════════════════════ */
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:3px}
+.flex-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.flex-col{display:flex;flex-direction:column;gap:4px}
+.mt-1{margin-top:4px}.mt-2{margin-top:8px}
+.w-full{width:100%}
+.phase-box{padding:5px 10px;border-radius:7px;font-size:.67rem;font-weight:800;text-transform:uppercase;letter-spacing:.5px;display:inline-flex;align-items:center;gap:4px}
+
+/* ══ SUSPENSE : révélation du résultat roue ══ */
+.d-rpill.reveal-pop{
+  animation:revealPill .55s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes revealPill{
+  0%  {transform:scale(0) rotate(-8deg);opacity:0;filter:brightness(3)}
+  60% {transform:scale(1.18) rotate(2deg);opacity:1}
+  100%{transform:scale(1) rotate(0);opacity:1;filter:brightness(1)}
+}
+/* Flash de lumière au moment de la révélation */
+#revealFlash{
+  position:fixed;inset:0;pointer-events:none;z-index:900;
+  background:radial-gradient(ellipse 60% 40% at 50% 75%,rgba(255,215,0,.35) 0%,transparent 65%);
+  opacity:0;transition:opacity .1s;
+}
+#revealFlash.show{opacity:1}
+
+/* ══ SCORES DYNAMIQUES ══ */
+/* Conteneur des scores display */
+.d-scol{position:relative}
+
+/* Ligne de score — version enrichie */
+.d-srow{
+  transition:all .35s cubic-bezier(.34,1.56,.64,1);
+  transform-origin:right center;
+}
+.d-srow.active{
+  transform:scale(1.04);
+  box-shadow:0 0 0 1.5px var(--active-c), 0 4px 16px rgba(0,0,0,.4);
+}
+.d-srow.just-gained{
+  animation:scoreGain .6s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes scoreGain{
+  0%  {background:rgba(255,255,255,.14)}
+  40% {transform:scale(1.07)}
+  100%{background:transparent;transform:scale(1)}
+}
+
+/* Séparation score total / manche */
+.d-score-block{display:flex;flex-direction:column;align-items:flex-end;gap:1px}
+.d-stot{font-family:'Oswald',sans-serif;font-size:.95rem;font-weight:700;min-width:36px;text-align:right;transition:all .3s}
+.d-srnd{font-family:'Oswald',sans-serif;font-size:.65rem;color:rgba(255,255,255,.3);min-width:30px;text-align:right}
+.d-srnd.positive{color:rgba(141,198,63,.7);font-weight:700}
+
+/* Flottants "+500" */
+#scoreFloats{position:fixed;inset:0;pointer-events:none;z-index:950}
+.score-float{
+  position:absolute;
+  font-family:'Abril Fatface','Georgia',serif;
+  font-size:1.6rem;font-weight:700;
+  text-shadow:0 2px 12px rgba(0,0,0,.7);
+  pointer-events:none;
+  animation:floatUp 1.8s cubic-bezier(.2,.8,.3,1) forwards;
+  white-space:nowrap;
+}
+@keyframes floatUp{
+  0%  {transform:translateY(0) scale(1);  opacity:1}
+  20% {transform:translateY(-12px) scale(1.2);opacity:1}
+  80% {transform:translateY(-80px) scale(1);opacity:.8}
+  100%{transform:translateY(-120px) scale(.8);opacity:0}
+}
+
+/* ══ MOBILE : masquer résultat pendant spin ══ */
+.mob-result.hidden{opacity:0!important;pointer-events:none}
+.mob-result.reveal{
+  animation:mobReveal .6s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes mobReveal{
+  0%  {transform:scale(.3);opacity:0}
+  60% {transform:scale(1.15);opacity:1}
+  100%{transform:scale(1);opacity:1}
+}
+
+/* ══ SPINNING : icône pendant la rotation ══ */
+.d-rpill.spinning-hint{
+  opacity:1!important;
+  background:rgba(255,255,255,.06)!important;
+  border-color:rgba(255,255,255,.1)!important;
+  color:rgba(255,255,255,.4)!important;
+  animation:spinHintPulse 1s ease-in-out infinite;
+}
+@keyframes spinHintPulse{0%,100%{opacity:.4}50%{opacity:.8}}
+</style>
+</head>
+<body>
+<canvas id="cfCvs"></canvas>
+<div id="bankFlash"></div>
+<div id="revealFlash"></div>
+<div id="scoreFloats"></div>
+<div id="audioUnlock" onclick="unlockAudio()">🔊 Activer les sons</div>
+
+<!-- ═════════════════════════════════════════════════════
+     ÉCRAN DE PROJECTION
+═════════════════════════════════════════════════════ -->
+<div id="displayApp">
+  <div class="d-hdr">
+    <div><div class="d-title">🎡 LA ROUE DES ÉDUCATEURS</div><div class="d-sub">Accueil Pédagogique Postscolaire · APPS Bruxelles</div></div>
+    <div id="dCat" class="d-cat">—</div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <div class="d-timer off" id="dTimer">45</div>
+      <div class="d-pips" id="dPips"></div>
+    </div>
+  </div>
+  <div class="d-board-area">
+    <div class="d-tried-strip" id="dTriedStrip" style="opacity:0">
+      <span class="d-tried-lbl">Lettres :</span>
+      <div id="dTriedLetters" style="display:flex;gap:3px;flex-wrap:wrap;justify-content:center"></div>
+    </div>
+    <div class="phrase-board" id="dBoard"><div style="color:rgba(255,255,255,.16);font-size:.9rem">En attente de la prochaine manche…</div></div>
+  </div>
+  <div class="d-bottom">
+    <div class="d-wcol"><canvas id="dWheelCvs" width="155" height="155"></canvas></div>
+    <div class="d-tcol">
+      <div class="d-tlbl">Au tour de</div>
+      <div class="d-tname" id="dTurnName">—</div>
+      <div class="d-rpill" id="dRPill"></div>
+      <div class="d-msg" id="dMsg"></div>
+    </div>
+    <div class="d-scol" id="dScores"></div>
+  </div>
+  <div class="d-ov" id="dOverlay">
+    <div class="d-ov-card">
+      <span class="d-ov-icon" id="dOvIcon">🎉</span>
+      <div class="d-ov-title" id="dOvTitle">Bravo !</div>
+      <div class="d-ov-sub" id="dOvSub"></div>
+      <div class="d-ov-caverne" id="dOvCaverne" style="display:none"></div>
+    </div>
+  </div>
+  <div class="d-gameover" id="dGameover">
+    <div class="go-title">🏆 Palmarès Final — La Roue des Éducateurs</div>
+    <div class="podium" id="dPodium"></div>
+    <div id="dFinalList" style="display:flex;flex-direction:column;gap:5px;width:100%;max-width:420px;margin-top:8px"></div>
+  </div>
+</div>
+
+<!-- ═════════════════════════════════════════════════════
+     INTERFACE ANIMATEUR
+═════════════════════════════════════════════════════ -->
+<div id="hostApp">
+  <div class="h-hdr">
+    <div><div class="h-title">🎡 Interface Animateur — Roue des Éducateurs</div><div class="h-sub">Non visible sur le projecteur · Cette fenêtre reste sur votre PC</div></div>
+    <div class="h-hdr-r">
+      <div class="sync-badge"><div class="sync-dot" id="syncDot"></div><span id="syncTxt">Aucun écran ouvert</span></div>
+      <button class="btn btn-sm btn-ghost" onclick="openScreen('display')">📺 Projection</button>
+      <button class="btn btn-sm btn-ghost" onclick="openScreen('mobile')">📱 Mobile</button>
+      <button class="btn btn-sm btn-ghost" onclick="undoAction()" id="undoBtn" disabled>↩ Annuler</button>
+      <button class="btn btn-sm btn-red" onclick="resetFullGame()" style="font-size:.6rem">🔄 Reset partie</button>
+      <button class="btn btn-sm btn-purple" onclick="toggleDebug()">🐛 Debug</button>
+    </div>
+  </div>
+  <div class="h-body">
+
+    <!-- ── GAUCHE ── -->
+    <div class="h-left">
+
+      <div class="panel">
+        <div class="ptitle">Statut de la partie</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px">
+          <span id="hPhaseBadge" class="phase-box" style="background:rgba(0,170,175,.1);border:1px solid rgba(0,170,175,.2);color:var(--teal)">En attente</span>
+          <span id="hMancheLabel" style="font-size:.62rem;color:rgba(255,255,255,.28)">M1/4</span>
+        </div>
+        <div class="flex-row">
+          <button class="btn btn-sm btn-ghost" onclick="prevTeam()">◀ Préc.</button>
+          <button class="btn btn-sm btn-teal" onclick="nextTeam()">Suiv. ▶</button>
+          <button class="btn btn-sm btn-ghost" onclick="resetRound()">↺ Reset manche</button>
+        </div>
+      </div>
+
+      <!-- Roue -->
+      <div class="panel">
+        <div class="ptitle">Roue — cliquer pour tourner</div>
+        <canvas id="hWheelCvs" width="190" height="190" onclick="hostSpin()"></canvas>
+        <div class="wr-badge" id="hWrBadge">Cliquer pour tourner la roue</div>
+        <div class="force-cases" id="forceCases" style="display:none">
+          <button class="btn btn-xs btn-ghost" onclick="forceCase('banqueroute')" title="Forcer banqueroute">💸 Banq.</button>
+          <button class="btn btn-xs btn-ghost" onclick="forceCase('passe')" title="Forcer passe">⏭️ Passe</button>
+          <button class="btn btn-xs btn-ghost" onclick="forceCase('holdup')" title="Forcer hold-up">🔫 H.Up</button>
+          <button class="btn btn-xs btn-ghost" onclick="forceCase('quiz')" title="Forcer quiz">🧠 Quiz</button>
+          <button class="btn btn-xs btn-ghost" onclick="forceCase('defi')" title="Forcer défi">⚡ Défi</button>
+          <button class="btn btn-xs btn-ghost" onclick="forceCase('supercash')" title="Forcer super cash">⭐ Cash</button>
+        </div>
+      </div>
+
+      <!-- Timer -->
+      <div class="panel">
+        <div class="ptitle">Minuteur par tour</div>
+        <div class="timer-row">
+          <div class="h-timer-disp" id="hTimerDisp">—</div>
+          <button class="btn btn-sm btn-ghost" id="timerToggleBtn" onclick="toggleTimer()">▶ Démarrer</button>
+          <button class="btn btn-sm btn-ghost" onclick="resetTimer()">↺</button>
+          <input type="number" id="timerDurInput" value="45" min="10" max="120" style="width:42px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:6px;color:#fff;padding:3px 5px;font-size:.68rem;text-align:center;outline:none" onchange="setTimerDur(+this.value)">
+          <span style="font-size:.6rem;color:rgba(255,255,255,.25)">s</span>
+        </div>
+      </div>
+
+      <!-- Proposer lettre -->
+      <div class="panel">
+        <div class="ptitle">Proposer une lettre</div>
+        <div class="tog-row">
+          <div class="tog on" id="togC" onclick="setLT('C')">Consonne</div>
+          <div class="tog" id="togV" onclick="setLT('V')">Voyelle (−250 pts)</div>
+        </div>
+        <div class="flex-row">
+          <input class="letter-inp" type="text" id="letterInp" maxlength="1" placeholder="A"
+            oninput="this.value=this.value.toUpperCase().replace(/[^A-ZÀÈÙÉÊÎÔÛÂ]/g,'').slice(0,1)"
+            onkeydown="if(event.key==='Enter')proposeLetter()">
+          <button class="btn btn-lg btn-gold" onclick="proposeLetter()">✓ Valider</button>
+        </div>
+        <div style="font-size:.58rem;color:rgba(255,255,255,.25);margin-top:5px" id="hLetterHint">Tournez d'abord la roue (consonne).</div>
+      </div>
+
+      <!-- Hold-up panel (shown when eventType = holdup) -->
+      <div class="panel" id="holdupPanel" style="display:none">
+        <div class="ptitle" style="color:#F87171">🔫 Hold-Up — Choisir la cible</div>
+        <div class="holdup-list" id="holdupList"></div>
+        <div class="flex-row mt-1">
+          <button class="btn btn-sm btn-red btn-w" id="holdupConfirmBtn" onclick="confirmHoldup()" disabled>💸 Voler les points</button>
+        </div>
+      </div>
+
+      <!-- Quiz panel -->
+      <div class="panel" id="quizPanel" style="display:none">
+        <div class="ptitle" style="color:#38BDF8">🧠 Quiz — Attribution des points</div>
+        <div id="quizDisplay" style="font-size:.72rem;color:rgba(255,255,255,.7);line-height:1.6;margin-bottom:8px"></div>
+        <div style="font-size:.6rem;color:rgba(255,255,255,.3);margin-bottom:6px">Quelle équipe répond correctement en premier ?</div>
+        <div id="quizTeamBtns" style="display:flex;flex-direction:column;gap:3px"></div>
+        <div class="flex-row" style="margin-top:6px">
+          <button class="btn btn-sm btn-ghost btn-w" onclick="skipQuiz()">⏭️ Passer (0 pts)</button>
+        </div>
+      </div>
+
+      <!-- Défi panel -->
+      <div class="panel" id="defiPanel" style="display:none">
+        <div class="ptitle" style="color:#A78BFA">⚡ Défi — Résultat</div>
+        <div id="defiDisplay" style="font-size:.72rem;color:rgba(255,255,255,.7);line-height:1.5;margin-bottom:8px"></div>
+        <div style="font-size:.6rem;color:rgba(255,255,255,.3);margin-bottom:6px">Quelle équipe réussit le défi ?</div>
+        <div id="defiTeamBtns" style="display:flex;flex-direction:column;gap:3px"></div>
+        <div class="flex-row" style="margin-top:6px">
+          <button class="btn btn-sm btn-ghost btn-w" onclick="skipDefi()">⏭️ Passer (0 pts)</button>
+        </div>
+      </div>
+
+      <!-- Résoudre -->
+      <div class="panel">
+        <div class="ptitle">Résoudre la phrase entière</div>
+        <input class="solve-inp" type="text" id="solveInp" placeholder="Taper la solution complète…"
+          onkeydown="if(event.key==='Enter')judgeSolve(true)">
+        <div class="flex-row">
+          <button class="btn btn-md btn-green btn-w" onclick="judgeSolve(true)">✅ Correct</button>
+          <button class="btn btn-md btn-red" onclick="judgeSolve(false)">❌ Faux</button>
+        </div>
+      </div>
+
+      <!-- Contrôles manche -->
+      <div class="panel">
+        <div class="ptitle">Contrôles de manche</div>
+        <div class="flex-row">
+          <button class="btn btn-sm btn-teal" onclick="revealAll()">🔓 Tout révéler</button>
+          <button class="btn btn-sm btn-orange" onclick="endRoundManual()">Fin manche →</button>
+          <button class="btn btn-sm btn-purple" onclick="showPodium()">🏆 Podium</button>
+        </div>
+      </div>
+
+      <!-- Bonus question (manches avec bonusQ) -->
+      <div class="panel" id="bonusQPanel" style="display:none">
+        <div class="ptitle" style="color:var(--gold)">⭐ Question Bonus</div>
+        <div id="bonusQDisplay" style="font-size:.7rem;color:rgba(255,255,255,.7);line-height:1.5;margin-bottom:7px"></div>
+        <div id="bonusQTeamBtns" style="display:flex;flex-direction:column;gap:3px"></div>
+      </div>
+
+    </div>
+
+    <!-- ── CENTRE ── -->
+    <div class="h-center">
+      <div style="font-size:.53rem;text-transform:uppercase;letter-spacing:2px;color:rgba(255,255,255,.18)" id="hCatLbl">—</div>
+      <div class="phrase-board sm" id="hBoard"><div style="color:rgba(255,255,255,.16);font-size:.76rem">Aucune phrase chargée</div></div>
+      <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;justify-content:center;max-width:360px">
+        <span style="font-size:.52rem;color:rgba(255,255,255,.18);text-transform:uppercase;letter-spacing:1px">Essayées :</span>
+        <div id="hTried" style="display:flex;gap:3px;flex-wrap:wrap"></div>
+      </div>
+      <div class="flex-row" style="justify-content:center">
+        <span style="font-size:.64rem;color:rgba(255,255,255,.28)">Tour :</span>
+        <span id="hActiveName" style="font-family:'Abril Fatface','Georgia',serif;font-size:1rem;color:var(--teal)">—</span>
+        <span id="hRoundScore" style="font-size:.62rem;color:rgba(255,255,255,.26)"></span>
+      </div>
+      <div id="hMsg" style="font-size:.7rem;color:rgba(255,255,255,.4);text-align:center;max-width:360px;min-height:1em"></div>
+    </div>
+
+    <!-- ── DROITE ── -->
+    <div class="h-right">
+      <div class="rsec">
+        <div class="rsec-ttl">Équipes &amp; Scores</div>
+        <div id="hTeamList"></div>
+      </div>
+      <div class="rsec" style="flex:1">
+        <div class="rsec-ttl">Phrases par manche</div>
+        <div class="mtab-row" id="hMTabs"></div>
+        <div id="hPhraseEditor"></div>
+      </div>
+      <div class="rsec">
+        <div class="rsec-ttl">Manche active</div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap" id="hMancheActiveBtns"></div>
+      </div>
+      <div class="rsec">
+        <div class="rsec-ttl">Info</div>
+        <div class="info-line"><b>Consonne</b> : gratuite après tour de roue<br><b>Voyelle</b> : coûte 250 pts (pas de roue)<br><b>Résoudre</b> : si correct +500 pts · si faux = perd score de manche</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═════════════════════════════════════════════════════
+     INTERFACE MOBILE
+═════════════════════════════════════════════════════ -->
+<div id="mobileApp">
+  <div class="mob-header">
+    <div class="mob-title">🎡 La Roue des Éducateurs</div>
+    <div class="mob-subtitle">Interface Mobile · APPS Bruxelles</div>
+  </div>
+  <div class="mob-team">
+    <div class="mob-turn-lbl">Au tour de</div>
+    <div class="mob-team-name" id="mobTeamName">—</div>
+    <div class="mob-phase-badge" id="mobPhaseBadge">En attente…</div>
+  </div>
+  <div class="mob-wheel-wrap">
+    <canvas id="mWheelCvs" width="340" height="340"></canvas>
+  </div>
+  <div class="mob-result" id="mobResult" style="opacity:0">—</div>
+  <button class="mob-spin-btn" id="mobSpinBtn" onclick="mobileSpin()" disabled>TOURNER</button>
+</div>
+
+<script>
+/* ════════════════════════════════════════════════════════════
+   §1. MODE & CONSTANTS
+════════════════════════════════════════════════════════════ */
+const IS_DISP   = location.search.includes('display=1');
+const IS_MOBILE = location.search.includes('mobile=1');
+const IS_HOST   = !IS_DISP && !IS_MOBILE;
+
+document.getElementById(IS_DISP ? 'displayApp' : IS_MOBILE ? 'mobileApp' : 'hostApp').style.display = 'flex';
+
+const SK   = 'roue_v3_state';
+const TK   = 'roue_v3_ts';
+const VK   = 'roue_v3_ver'; // version counter pour forcer les écrans à relire
+const BC_NAME = 'roue_apps_v3';
+
+const VOWELS = new Set('AEIOUÀÈÙÉÊÎÔÛÂ'.split(''));
+const VOWEL_COST = 250;
+
+// Segments de la roue (20 cases)
+const WHEEL = [
+  {t:'pts',        v:200,  c:'#F7941D', l:'200'},
+  {t:'pts',        v:500,  c:'#00AAAF', l:'500'},
+  {t:'banqueroute',v:0,    c:'#111827', l:'BANQUEROUTE'},
+  {t:'pts',        v:300,  c:'#8DC63F', l:'300'},
+  {t:'pts',        v:100,  c:'#E91E8C', l:'100'},
+  {t:'passe',      v:0,    c:'#1F2937', l:'PASSE'},
+  {t:'pts',        v:400,  c:'#D97706', l:'400'},
+  {t:'pts',        v:150,  c:'#00AAAF', l:'150'},
+  {t:'holdup',     v:0,    c:'#7F1D1D', l:'HOLD-UP'},
+  {t:'pts',        v:250,  c:'#8DC63F', l:'250'},
+  {t:'supercash',  v:1000, c:'#78350F', l:'SUPER CASH'},
+  {t:'pts',        v:300,  c:'#F7941D', l:'300'},
+  {t:'banqueroute',v:0,    c:'#111827', l:'BANQUEROUTE'},
+  {t:'pts',        v:500,  c:'#E91E8C', l:'500'},
+  {t:'quiz',       v:0,    c:'#064E6E', l:'QUIZ'},
+  {t:'pts',        v:200,  c:'#8DC63F', l:'200'},
+  {t:'defi',       v:0,    c:'#4C1D95', l:'DÉFI'},
+  {t:'pts',        v:400,  c:'#D97706', l:'400'},
+  {t:'passe',      v:0,    c:'#1F2937', l:'PASSE'},
+  {t:'pts',        v:150,  c:'#00AAAF', l:'150'},
+];
+const SEG = 2 * Math.PI / WHEEL.length;
+
+const TEAMS_DEF = [
+  {name:'Ixelles',    color:'#00AAAF'},
+  {name:'Uccle',      color:'#F7941D'},
+  {name:'Woluwe',     color:'#8DC63F'},
+  {name:'Evere',      color:'#E91E8C'},
+  {name:'Laeken',     color:'#FFD700'},
+  {name:'COLE',       color:'#9333EA'},
+  {name:'Berkendael', color:'#3B82F6'},
+];
+
+// Manches : 4 phrases + thème Commission Européenne pour M2
+const PHRASES_DEF = [
+  {
+    text:     "LES SEPT BESOINS FONDAMENTAUX DE L'ENFANT",
+    category: "Pédagogie APPS",
+    bonusQ:   null,
+  },
+  {
+    text:     "URSULA VON DER LEYEN",
+    category: "Commission Européenne",
+    bonusQ:   {
+      question: "QUI EST LA PRÉSIDENTE DE LA COMMISSION EUROPÉENNE ?",
+      answer:   "URSULA VON DER LEYEN",
+      hint:     "Elle est allemande et en poste depuis 2019.",
+      points:   100,
+    },
+  },
+  {
+    text:     "LES SCHTROUMPFS SONT UNE INVENTION BELGE",
+    category: "Culture Belge 🇧🇪",
+    bonusQ:   {
+      question: "QUEL EST LE VRAI NOM DU CRÉATEUR DES SCHTROUMPFS ?",
+      answer:   "PIERRE CULLIFORD DIT PEYO",
+      hint:     "Son pseudonyme est Peyo — il était belge !",
+      points:   100,
+    },
+  },
+  {
+    text:     "ON EST LES MEILLEURS EDUCATEURS DU MONDE",
+    category: "Fierté APPS 🏆",
+    bonusQ:   null,
+  },
+];
+
+/* ════════════════════════════════════════════════════════════
+   BANQUE DE QUIZ — 16 questions QCM (aucune répétition en partie)
+   Chaque question : question, options[], correct (index 0-based), emoji
+════════════════════════════════════════════════════════════ */
+const QUIZ_BANK = [
+  {
+    emoji:'🧠', points:200,
+    question:"Combien de besoins Maslow identifie-t-il dans sa pyramide ?",
+    options:["3","5","7","9"], correct:1,
+  },
+  {
+    emoji:'💬', points:150,
+    question:"CNV = Communication…",
+    options:["Naturelle et Vivante","Non Violente","Nouvelle et Valorisante","Nécessaire et Voulue"], correct:1,
+  },
+  {
+    emoji:'🔺', points:200,
+    question:"Dans le Triangle de Karpman, quel rôle n'existe PAS ?",
+    options:["Sauveur","Persécuteur","Médiateur","Victime"], correct:2,
+  },
+  {
+    emoji:'👶', points:150,
+    question:"À quel âge l'enfant entre-t-il dans la période des opérations concrètes (Piaget) ?",
+    options:["2 ans","4 ans","7 ans","12 ans"], correct:2,
+  },
+  {
+    emoji:'🇪🇺', points:200,
+    question:"Combien d'États membres compte l'Union Européenne en 2024 ?",
+    options:["25","27","28","30"], correct:1,
+  },
+  {
+    emoji:'🏛️', points:200,
+    question:"Où se situe le siège de la Commission Européenne ?",
+    options:["Strasbourg","Luxembourg","Bruxelles","Berlin"], correct:2,
+  },
+  {
+    emoji:'🎯', points:150,
+    question:"CÉMÉA signifie… (1er mot = Centres)",
+    options:["Centres d'Entraînement aux Méthodes d'Éducation Active","Centres Européens des Méthodes d'Éducation Active","Centres d'Évaluation des Méthodes Éducatives Alternatives","Centres d'Éducation et de Méthodes pour Enfants et Adultes"], correct:0,
+  },
+  {
+    emoji:'📚', points:150,
+    question:"Qui est l'auteur de la Communication Non Violente ?",
+    options:["Carl Rogers","Albert Bandura","Marshall Rosenberg","Abraham Maslow"], correct:2,
+  },
+  {
+    emoji:'🌍', points:200,
+    question:"Quelle est la devise officielle de l'Union Européenne ?",
+    options:["Liberté, Égalité, Fraternité","Unie dans la diversité","Force par l'Union","Paix et Prospérité"], correct:1,
+  },
+  {
+    emoji:'🎓', points:150,
+    question:"L'ATL signifie : Accueil Temps…",
+    options:["Libre","Limité","Long","Légal"], correct:0,
+  },
+  {
+    emoji:'🧩', points:200,
+    question:"Quel est le besoin du bas de la pyramide de Maslow ?",
+    options:["Sécurité","Appartenance","Besoins physiologiques","Estime de soi"], correct:2,
+  },
+  {
+    emoji:'🔄', points:150,
+    question:"Dans le cycle VACA (CÉMÉA), que signifie le A de 'Analyser' ?",
+    options:["Agir ensuite","Prendre du recul sur l'expérience","Anticiper les problèmes","Adapter les activités"], correct:1,
+  },
+  {
+    emoji:'🏫', points:150,
+    question:"ONE signifie : Office de la Naissance et de…",
+    options:["l'Éducation","l'Enfance","l'Encadrement","l'Épanouissement"], correct:1,
+  },
+  {
+    emoji:'🤝', points:200,
+    question:"Quelle institution européenne siège à Strasbourg ?",
+    options:["La Commission","La Cour de Justice","Le Parlement Européen","Le Conseil de l'UE"], correct:2,
+  },
+  {
+    emoji:'🌱', points:150,
+    question:"Selon Piaget, quel stade précède les opérations concrètes ?",
+    options:["Sensorimoteur","Préopératoire","Formel","Symbolique"], correct:1,
+  },
+  {
+    emoji:'💡', points:200,
+    question:"La méthode active (CÉMÉA) privilégie avant tout…",
+    options:["La transmission magistrale","L'expérimentation et l'action","La mémorisation","Les cours théoriques"], correct:1,
+  },
+];
+
+/* ════════════════════════════════════════════════════════════
+   BANQUE DE DÉFIS — 16 défis fun (aucune répétition en partie)
+════════════════════════════════════════════════════════════ */
+const DEFI_BANK = [
+  {
+    emoji:'🗼', points:300, timer:120,
+    title:"Tour de Kapla",
+    text:"Construire la tour de Kapla la plus haute possible en 2 minutes ! L'équipe adverse mesure.",
+    hint:"Pas de colle, pas de support — que les blocs !",
+  },
+  {
+    emoji:'✈️', points:200, timer:30,
+    title:"Meilleur avion en papier",
+    text:"Chaque membre fait un avion en papier en 30 secondes. Le lancer le plus loin gagne pour l'équipe !",
+    hint:"Allez-y, on chronomètre !",
+  },
+  {
+    emoji:'🖊️', points:250, timer:15,
+    title:"Vendez ce crayon !",
+    text:"Un membre de l'équipe a 15 secondes pour vendre un crayon à l'animateur. Le meilleur argument gagne !",
+    hint:"Technique de vente niveau pro requise !",
+  },
+  {
+    emoji:'🎭', points:200, timer:20,
+    title:"Mime collectif",
+    text:"L'équipe mime silencieusement 'une réunion d'équipe qui se passe très mal' — l'animateur valide si c'est reconnaissable !",
+    hint:"Pas un mot, que des gestes !",
+  },
+  {
+    emoji:'🔢', points:150, timer:30,
+    title:"Compte synchronisé",
+    text:"Toute l'équipe compte à haute voix jusqu'à 10 exactement en même temps — zéro décalage toléré !",
+    hint:"Respirez ensemble avant de commencer.",
+  },
+  {
+    emoji:'🌊', points:150, timer:10,
+    title:"La vague parfaite",
+    text:"Faire une vague avec les mains de gauche à droite PUIS de droite à gauche en moins de 5 secondes pour chaque sens !",
+    hint:"Timing et coordination !",
+  },
+  {
+    emoji:'📱', points:200, timer:20,
+    title:"Téléphone arabe express",
+    text:"L'animateur chuchote une phrase à l'oreille d'un membre. Elle doit arriver intacte au dernier membre en 20 secondes !",
+    hint:"La phrase : 'L'éducateur bienveillant mange des spaghettis le mardi'",
+  },
+  {
+    emoji:'🎵', points:250, timer:30,
+    title:"Reconnaissez la chanson",
+    text:"L'animateur fredonne une mélodie (sans paroles). L'équipe la reconnaît et donne le titre en 30 secondes !",
+    hint:"Au jugé de l'animateur — chanson au choix parmi : 'Let It Go', 'L'Hymne à l'amour', 'Bella Ciao'…",
+  },
+  {
+    emoji:'🪑', points:300, timer:0,
+    title:"Chaises musicales humaines",
+    text:"Toute l'équipe doit tenir sur le moins de chaises possible (debout sur les sièges) — minimum 2 personnes par chaise !",
+    hint:"Équilibre et cohésion d'équipe !",
+  },
+  {
+    emoji:'🎯', points:200, timer:15,
+    title:"Jeux coopératifs",
+    text:"Citez le maximum de jeux coopératifs pour enfants en 15 secondes — sans répétition !",
+    hint:"Un membre note, les autres crient !",
+  },
+  {
+    emoji:'🤔', points:250, timer:30,
+    title:"Devinette pédagogique",
+    text:"'Je suis invisible mais on me ressent. Je nais d'un besoin non satisfait. Je peux être joie, colère ou tristesse.' — Qui suis-je ?",
+    hint:"C'est lié aux émotions…",
+  },
+  {
+    emoji:'🖐️', points:150, timer:15,
+    title:"Pierre-Feuille-Ciseaux de groupe",
+    text:"Tous les membres de l'équipe font Pierre-Feuille-Ciseaux simultanément. Objectif : que TOUT le monde fasse le même signe en max 5 essais !",
+    hint:"Pas de communication verbale autorisée après le 1er essai !",
+  },
+  {
+    emoji:'🎪', points:300, timer:20,
+    title:"Tableau vivant",
+    text:"L'équipe reconstitue le tableau 'La Liberté guidant le peuple' en tableau vivant en 20 secondes — l'animateur juge !",
+    hint:"Cherchez le drapeau, la foule, la posture héroïque !",
+  },
+  {
+    emoji:'🧊', points:200, timer:0,
+    title:"Ice breaker express",
+    text:"Chaque membre de l'équipe dit son prénom + un animal qui lui ressemble en moins de 3 secondes chacun. Toute l'équipe retient tout !",
+    hint:"L'animateur teste la mémoire de l'équipe après !",
+  },
+  {
+    emoji:'💼', points:250, timer:30,
+    title:"Pitch de 30 secondes",
+    text:"Un membre de l'équipe doit convaincre l'animateur d'embaucher toute son équipe en 30 secondes chrono !",
+    hint:"Soyez créatifs, soyez convaincants !",
+  },
+  {
+    emoji:'🤸', points:200, timer:15,
+    title:"Nœud humain",
+    text:"Tous les membres de l'équipe forment un cercle, chacun attrape deux mains différentes. Déficellez le nœud sans lâcher les mains !",
+    hint:"Communication et stratégie requises !",
+  },
+];
+
+/* ════════════════════════════════════════════════════════════
+   §2. ÉTAT DU JEU
+════════════════════════════════════════════════════════════ */
+/*
+  Phases :
+  'idle'      → entre les tours, prêt à tourner
+  'spinning'  → roue en animation (aucune action acceptée)
+  'letter'    → roue s'est arrêtée sur points, proposer une lettre
+  'event'     → case spéciale active (holdup, caverne, etc.)
+  'roundEnd'  → manche terminée
+  'gameEnd'   → partie terminée
+*/
+function defaultState() {
+  return {
+    phase:      'idle',
+    eventType:  null,    // 'banqueroute'|'passe'|'holdup'|'quiz'|'defi'|'supercash'
+    manche:     0,
+    teams:      TEAMS_DEF.map(t => ({...t, score: 0, roundScore: 0})),
+    activeTeam: 0,
+    phrases:    PHRASES_DEF.map(p => ({...p})),
+    revealed:   [],
+    tried:      [],
+    wrongOnly:  [],
+    wheelAngle: 0,
+    wheelResult: null,
+    wheelSpinTo: 0,
+    wheelSpinning: false,
+    bonusMultiplier: 1,
+    letterType: 'C',
+    message: '',
+    overlay:  null,
+    holdupTarget: null,
+    quizContent: null,    // quiz actif
+    defiContent: null,    // défi actif
+    usedQuizIdx: [],      // indices de QUIZ_BANK déjà utilisés cette partie
+    usedDefiIdx: [],      // indices de DEFI_BANK déjà utilisés cette partie
+    gameOver: false,
+    wheelResultVisible: false,
+    lastGain: null,
+    ts: 0,
+  };
+}
+
+let S = defaultState();
+let lastUndo = null; // état sauvegardé pour annulation
+
+/* ════════════════════════════════════════════════════════════
+   §3. SYNCHRONISATION — BroadcastChannel + localStorage + polling
+════════════════════════════════════════════════════════════ */
+let bc = null;
+let lastSeenTs = 0;
+let connectedScreens = 0;
+
+function initSync() {
+  // Tenter BroadcastChannel (principal)
+  try {
+    bc = new BroadcastChannel(BC_NAME);
+    bc.onmessage = handleMessage;
+  } catch(e) {
+    bc = null;
+    console.warn('BroadcastChannel non disponible, mode polling uniquement');
+  }
+
+  if (IS_DISP || IS_MOBILE) {
+    // Polling localStorage — 150ms pour une synchro quasi-instantanée
+    setInterval(pollState, 150);
+    sendMessage({type: IS_DISP ? 'SCREEN_HELLO' : 'MOBILE_HELLO'});
+  }
+
+  if (IS_HOST) {
+    // Host écoute les connexions
+    setInterval(updateSyncBadge, 2000);
+    updateSyncBadge();
+  }
+}
+
+function sendMessage(msg) {
+  if (bc) { try { bc.postMessage(msg); } catch(e) {} }
+}
+
+function handleMessage(e) {
+  const msg = e.data;
+  if (!msg) return;
+
+  if (IS_HOST) {
+    // Host traite les requêtes des écrans
+    if (msg.type === 'SPIN_REQUEST') {
+      if (S.phase === 'idle') hostSpin();
+    }
+    if (msg.type === 'SCREEN_HELLO' || msg.type === 'MOBILE_HELLO') {
+      connectedScreens++;
+      updateSyncBadge();
+      // Envoyer l'état actuel au nouvel écran
+      saveState(false);
+    }
+  } else {
+    // Écrans esclaves reçoivent l'état
+    if (msg.type === 'STATE_UPDATE') {
+      applyRemoteState(msg.state);
+    }
+  }
+}
+
+function pollState() {
+  if (IS_HOST) return;
+  try {
+    const ts = parseInt(localStorage.getItem(TK) || '0');
+    if (ts > lastSeenTs) {
+      lastSeenTs = ts;
+      const raw = localStorage.getItem(SK);
+      if (!raw) return;
+      const newState = JSON.parse(raw);
+      applyRemoteState(newState);
+    }
+  } catch(e) {}
+}
+
+function applyRemoteState(newState) {
+  const prevSpinning  = S.wheelSpinning;
+  const prevVisible   = S.wheelResultVisible;
+  const prevGainTs    = S.lastGain ? S.lastGain.ts : 0;
+  const prevGameOver  = S.gameOver;
+
+  S = Object.assign(defaultState(), newState);
+
+  // Roue : déclencher animation esclave
+  if (S.wheelSpinning && !prevSpinning) {
+    animSlaveWheel(S.wheelSpinTo);
+  }
+
+  // Révélation résultat
+  if (S.wheelResultVisible && !prevVisible) {
+    triggerRevealEffect();
+  }
+
+  // Gain de points : flottant
+  if (S.lastGain && S.lastGain.ts > prevGainTs) {
+    spawnScoreFloat(S.lastGain.teamIdx, S.lastGain.amount, S.teams[S.lastGain.teamIdx]?.color || '#FFD700');
+  }
+
+  // Confettis fin de partie
+  if (S.gameOver && !prevGameOver) {
+    setTimeout(launchConfetti, 500);
+  }
+
+  // RESET : nettoyer les confettis si la partie repart
+  if (!S.gameOver && prevGameOver) {
+    stopConfetti();
+  }
+
+  render();
+}
+
+function saveState(broadcast = true, forceVer = false) {
+  try {
+    S.ts = Date.now();
+    const str = JSON.stringify(S);
+    localStorage.setItem(SK, str);
+    localStorage.setItem(TK, S.ts.toString());
+    // Bump version counter pour forcer les écrans qui auraient raté un update
+    if (forceVer) {
+      const ver = parseInt(localStorage.getItem(VK) || '0') + 1;
+      localStorage.setItem(VK, ver.toString());
+    }
+  } catch(e) { console.warn('saveState error', e); }
+
+  if (broadcast) {
+    sendMessage({type: 'STATE_UPDATE', state: S});
+    // Double envoi 80ms après pour fiabilité
+    setTimeout(() => sendMessage({type: 'STATE_UPDATE', state: S}), 80);
+  }
+  if (IS_HOST) render();
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(SK);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (parsed && Array.isArray(parsed.teams) && Array.isArray(parsed.phrases)) {
+      S = Object.assign(defaultState(), parsed);
+      lastSeenTs = S.ts;
+    }
+  } catch(e) {
+    console.warn('loadState error, reset', e);
+    S = defaultState();
+  }
+}
+
+function updateSyncBadge() {
+  if (!IS_HOST) return;
+  const dot = document.getElementById('syncDot');
+  const txt = document.getElementById('syncTxt');
+  if (!dot) return;
+  if (connectedScreens > 0) {
+    dot.classList.add('ok'); dot.classList.remove('warn');
+    txt.textContent = `${connectedScreens} écran(s) connecté(s)`;
+  } else {
+    dot.classList.remove('ok'); dot.classList.add('warn');
+    txt.textContent = 'Aucun écran connecté';
+  }
+}
+
+function openScreen(type) {
+  const url = location.href.split('?')[0] + `?${type}=1`;
+  window.open(url, `roue_${type}`, 'noopener');
+  setTimeout(() => { connectedScreens++; updateSyncBadge(); saveState(); }, 500);
+}
+
+/* ════════════════════════════════════════════════════════════
+   §4. ROUE — DESSIN & ANIMATION
+════════════════════════════════════════════════════════════ */
+function drawWheel(cvs, angle) {
+  if (!cvs) return;
+  const W = cvs.width, H = cvs.height, cx = W/2, cy = H/2, R = W * 0.44;
+  const ctx = cvs.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+
+  // Ombre extérieure
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = 15;
+  ctx.beginPath(); ctx.arc(cx, cy, R + 3, 0, Math.PI*2); ctx.fillStyle = '#0A0E18'; ctx.fill();
+  ctx.restore();
+
+  // Segments
+  for (let i = 0; i < WHEEL.length; i++) {
+    const a0 = angle + i * SEG, a1 = a0 + SEG;
+    const seg = WHEEL[i];
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, R, a0, a1); ctx.closePath();
+    ctx.fillStyle = seg.c; ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,.2)'; ctx.lineWidth = 1.5; ctx.stroke();
+
+    ctx.save();
+    ctx.translate(cx, cy); ctx.rotate(a0 + SEG/2);
+    ctx.textAlign = 'right';
+    ctx.fillStyle = 'rgba(255,255,255,.88)';
+    const fs = W > 180 ? 9 : W > 155 ? 8 : 6.5;
+    ctx.font = `bold ${fs}px Oswald,Arial Narrow,sans-serif`;
+    ctx.fillText(seg.l, R * 0.88, fs * 0.38);
+    ctx.restore();
+  }
+
+  // Hub central
+  ctx.beginPath(); ctx.arc(cx, cy, R * 0.1, 0, Math.PI*2);
+  ctx.fillStyle = '#080D18'; ctx.fill();
+  ctx.strokeStyle = 'rgba(255,215,0,.4)'; ctx.lineWidth = 2; ctx.stroke();
+
+  // Pointeur (haut)
+  const pw = Math.max(7, W * 0.055);
+  ctx.beginPath();
+  ctx.moveTo(cx - pw, 2); ctx.lineTo(cx + pw, 2); ctx.lineTo(cx, pw * 2.5); ctx.closePath();
+  ctx.fillStyle = '#FFD700';
+  ctx.shadowColor = 'rgba(255,215,0,.9)'; ctx.shadowBlur = 8;
+  ctx.fill(); ctx.shadowBlur = 0;
+}
+
+// ── Animation HOST ──
+let hRAF = null, hAnimFrom = 0, hAnimTo = 0, hAnimDur = 0, hAnimStart = null, hAnimRunning = false, hAnimCb = null;
+
+function animHostWheel(target, dur, cb) {
+  if (hAnimRunning) return;
+  hAnimFrom = S.wheelAngle; hAnimTo = target; hAnimDur = dur;
+  hAnimCb = cb; hAnimRunning = true; hAnimStart = null;
+  const cvs = document.getElementById('hWheelCvs');
+
+  function frame(ts) {
+    if (!hAnimStart) hAnimStart = ts;
+    const t = Math.min((ts - hAnimStart) / hAnimDur, 1);
+    const ease = t < 1 ? 1 - Math.pow(1-t, 3) : 1; // ease-out cubic
+    drawWheel(cvs, hAnimFrom + (hAnimTo - hAnimFrom) * ease);
+    if (t < 1) { hRAF = requestAnimationFrame(frame); }
+    else { drawWheel(cvs, hAnimTo); hAnimRunning = false; if (hAnimCb) hAnimCb(); }
+  }
+  if (hRAF) cancelAnimationFrame(hRAF);
+  hRAF = requestAnimationFrame(frame);
+}
+
+// ── Animation SLAVE (display & mobile) ──
+let sAngle = 0, sRAF = null, sFrom = 0, sTo = 0, sStart = null, sAnimating = false;
+
+function animSlaveWheel(target) {
+  sFrom = sAngle; sTo = target; sStart = null; sAnimating = true;
+  const cvsId = IS_DISP ? 'dWheelCvs' : 'mWheelCvs';
+  const cvs = document.getElementById(cvsId);
+
+  function frame(ts) {
+    if (!sStart) sStart = ts;
+    const t = Math.min((ts - sStart) / 4200, 1);
+    const ease = 1 - Math.pow(1-t, 3);
+    sAngle = sFrom + (sTo - sFrom) * ease;
+    drawWheel(cvs, sAngle);
+    if (t < 1) { sRAF = requestAnimationFrame(frame); }
+    else { sAngle = sTo; sAnimating = false; render(); }
+  }
+  if (sRAF) cancelAnimationFrame(sRAF);
+  sRAF = requestAnimationFrame(frame);
+}
+
+// ── Calcul angle cible ──
+function calcSpinTarget(idx) {
+  // Pointeur en haut = angle -π/2
+  // Centre segment idx doit tomber au pointeur
+  const wobble = (Math.random() - 0.5) * SEG * 0.6;
+  const base = -Math.PI/2 - idx * SEG - SEG/2 + wobble;
+  const minSpins = 6 * 2 * Math.PI;
+  let target = base;
+  while (target < S.wheelAngle + minSpins) target += 2 * Math.PI;
+  return target;
+}
+
+/* ════════════════════════════════════════════════════════════
+   §5. PLATEAU DE LETTRES
+════════════════════════════════════════════════════════════ */
+function buildBoard(phrase, revealed, small = false) {
+  const maxRow = small ? 16 : 15;
+  const words = phrase.split(' ');
+  const rows = []; let row = [], cnt = 0;
+  for (const w of words) {
+    if (cnt + w.length > maxRow && cnt > 0) { rows.push([...row]); row = [w]; cnt = w.length; }
+    else { row.push(w); cnt += w.length; }
+  }
+  if (row.length) rows.push(row);
+
+  let html = '';
+  for (const r of rows) {
+    html += '<div class="board-row">';
+    for (const w of r) {
+      html += '<div class="board-word">';
+      for (const ch of w) {
+        const u = ch.toUpperCase();
+        if ("'-,.!?".includes(ch)) {
+          html += `<div class="tile tile-p">${ch}</div>`;
+        } else if (revealed.includes(u)) {
+          html += `<div class="tile tile-r">${u}</div>`;
+        } else {
+          html += '<div class="tile tile-h"></div>';
+        }
+      }
+      html += '</div>';
+    }
+    html += '</div>';
+  }
+  return html;
+}
+
+/* ════════════════════════════════════════════════════════════
+   §6. LOGIQUE DU JEU (HOST seulement)
+════════════════════════════════════════════════════════════ */
+
+// Sauvegarder pour annulation
+function saveUndo() {
+  lastUndo = JSON.parse(JSON.stringify(S));
+  const btn = document.getElementById('undoBtn');
+  if (btn) btn.disabled = false;
+}
+
+function undoAction() {
+  if (!lastUndo) return;
+  S = lastUndo; lastUndo = null;
+  const btn = document.getElementById('undoBtn');
+  if (btn) btn.disabled = true;
+  sound('undo');
+  saveState();
+}
+
+// Tourner la roue (depuis host ou depuis mobile)
+function hostSpin() {
+  if (hAnimRunning) return;
+  if (S.phase !== 'idle') {
+    if (S.phase === 'spinning') return;
+    alert(`Action impossible — phase actuelle : ${S.phase}`);
+    return;
+  }
+
+  saveUndo();
+  const idx = Math.floor(Math.random() * WHEEL.length);
+  const result = WHEEL[idx];
+  const target = calcSpinTarget(idx);
+
+  S.wheelResult   = result;
+  S.wheelSpinTo   = target;
+  S.wheelSpinning = true;
+  S.phase         = 'spinning';
+  S.message       = '';
+  S.bonusMultiplier = 1;
+  S.wheelResultVisible = false; // SUSPENSE : résultat masqué pendant l'animation
+  sound('spin_start');
+  saveState();
+
+  const cvs = document.getElementById('hWheelCvs');
+  cvs.classList.add('spinning');
+
+  animHostWheel(target, 4200, () => {
+    S.wheelAngle    = target;
+    S.wheelSpinning = false;
+    cvs.classList.remove('spinning');
+    processWheelResult(result);
+  });
+}
+
+function mobileSpin() {
+  // Mobile envoie une requête au HOST
+  sendMessage({type: 'SPIN_REQUEST'});
+}
+
+function processWheelResult(result) {
+  const team = S.teams[S.activeTeam];
+  // ✅ SUSPENSE : révéler le résultat maintenant que la roue est arrêtée
+  S.wheelResultVisible = true;
+  sound('spin_end');
+  // Effet de révélation sur l'hôte aussi
+  triggerRevealEffect();
+
+  switch(result.t) {
+    case 'pts':
+      S.phase = 'letter';
+      S.message = `Roue : ${result.v} pts/lettre. Proposez une consonne.`;
+      break;
+
+    case 'supercash':
+      S.phase = 'letter';
+      S.bonusMultiplier = 2; // SUPER CASH x2 !
+      S.message = `⭐ SUPER CASH ! ${result.v} pts × 2 par lettre !`;
+      S.overlay = {icon:'⭐', title:`SUPER CASH — ${result.v * 2} pts !`, sub:`${team.name} joue à ${result.v}×2 pts par lettre !`};
+      sound('supercash');
+      setTimeout(() => { S.overlay = null; saveState(); }, 2500);
+      break;
+
+    case 'banqueroute': {
+      const lost = team.roundScore;
+      team.roundScore = 0;
+      S.phase = 'idle'; S.wheelResult = null;
+      S.message = `💸 ${team.name} perd ${lost} pts !`;
+      S.overlay = {icon:'💸', title:'BANQUEROUTE !', sub:`${team.name} perd ${lost} points de la manche`};
+      sound('banqueroute');
+      showBankFlash();
+      saveState();
+      setTimeout(() => { S.overlay = null; saveState(); moveToNextTeam(false); }, 3000);
+      return;
+    }
+
+    case 'passe':
+      S.phase = 'idle'; S.wheelResult = null;
+      S.overlay = {icon:'⏭️', title:'PASSE !', sub:`${team.name} passe son tour`};
+      sound('passe');
+      saveState();
+      setTimeout(() => { S.overlay = null; saveState(); moveToNextTeam(false); }, 2500);
+      return;
+
+    case 'holdup':
+      S.phase = 'event'; S.eventType = 'holdup';
+      S.holdupTarget = null;
+      S.overlay = {icon:'🔫', title:'HOLD-UP !', sub:`${team.name} peut voler la cagnotte d'une équipe !`};
+      sound('holdup');
+      saveState();
+      setTimeout(() => { S.overlay = null; saveState(); }, 3500);
+      return;
+
+    case 'quiz': {
+      // Piocher un quiz non encore utilisé cette partie
+      const available = QUIZ_BANK.map((_, i) => i).filter(i => !S.usedQuizIdx.includes(i));
+      const pool = available.length > 0 ? available : QUIZ_BANK.map((_, i) => i); // reset si tout utilisé
+      const idx = pool[Math.floor(Math.random() * pool.length)];
+      if (!S.usedQuizIdx.includes(idx)) S.usedQuizIdx.push(idx);
+      const q = QUIZ_BANK[idx];
+      S.phase = 'event'; S.eventType = 'quiz';
+      S.quizContent = {...q, idx};
+      S.overlay = {
+        icon: q.emoji,
+        title: '🧠 QUIZ !',
+        sub: `+${q.points} pts pour l'équipe la plus rapide !`,
+        quizQuestion: q.question,
+        quizOptions: q.options,
+      };
+      sound('caverne');
+      saveState();
+      return;
+    }
+
+    case 'defi': {
+      // Piocher un défi non encore utilisé cette partie
+      const availD = DEFI_BANK.map((_, i) => i).filter(i => !S.usedDefiIdx.includes(i));
+      const poolD = availD.length > 0 ? availD : DEFI_BANK.map((_, i) => i);
+      const idxD = poolD[Math.floor(Math.random() * poolD.length)];
+      if (!S.usedDefiIdx.includes(idxD)) S.usedDefiIdx.push(idxD);
+      const d = DEFI_BANK[idxD];
+      S.phase = 'event'; S.eventType = 'defi';
+      S.defiContent = {...d, idx: idxD};
+      S.overlay = {
+        icon: d.emoji,
+        title: `⚡ DÉFI — ${d.title}`,
+        sub: d.hint,
+        defiText: d.text,
+        defiTimer: d.timer,
+      };
+      sound('mystere');
+      saveState();
+      return;
+    }
+  }
+
+  saveState();
+}
+
+// Forcer une case (debug)
+function forceCase(type) {
+  if (!IS_HOST) return;
+  const fakeResult = WHEEL.find(w => w.t === type) || {t: type, v: 500, c:'#555', l: type.toUpperCase()};
+  saveUndo();
+  S.wheelAngle = S.wheelAngle; // unchanged
+  S.wheelResult = fakeResult;
+  S.phase = 'spinning'; S.wheelSpinning = false;
+  processWheelResult(fakeResult);
+}
+
+// Proposer une lettre
+function proposeLetter() {
+  if (!IS_HOST) return;
+
+  const inp = document.getElementById('letterInp');
+  const l = (inp.value || '').toUpperCase().trim();
+  if (!l || !/^[A-ZÀÈÙÉÊÎÔÛÂ]$/.test(l)) { alert('Entrez une lettre valide (A–Z).'); return; }
+  if (S.tried.includes(l)) { alert(`"${l}" a déjà été proposée !`); return; }
+  if (S.phase !== 'letter' && S.letterType !== 'V') {
+    alert(`Action impossible — phase : ${S.phase}. Tournez d'abord la roue.`); return;
+  }
+
+  const isVow = VOWELS.has(l);
+  if (S.letterType === 'C' && isVow) { alert(`"${l}" est une voyelle. Passez en mode Voyelle.`); return; }
+  if (S.letterType === 'V' && !isVow) { alert(`"${l}" est une consonne. Passez en mode Consonne.`); return; }
+  if (S.letterType === 'V' && S.phase !== 'idle' && S.phase !== 'letter') {
+    alert("Impossible d'acheter une voyelle maintenant."); return;
+  }
+
+  const ph = S.phrases[S.manche];
+  if (!ph || !ph.text) { alert('Aucune phrase chargée pour cette manche.'); return; }
+
+  saveUndo();
+  const team = S.teams[S.activeTeam];
+
+  // Acheter une voyelle
+  if (isVow) {
+    if (team.roundScore < VOWEL_COST) {
+      alert(`${team.name} n'a pas assez de points (besoin : ${VOWEL_COST} pts, possède : ${team.roundScore}).`);
+      return;
+    }
+    team.roundScore -= VOWEL_COST;
+  }
+
+  S.tried.push(l);
+  const phraseU = ph.text.toUpperCase();
+  const count = phraseU.split('').filter(c => c === l).length;
+
+  if (count > 0) {
+    if (!S.revealed.includes(l)) S.revealed.push(l);
+
+    if (!isVow && S.wheelResult && S.wheelResult.t === 'pts') {
+      // Gain = valeur × occurrences × multiplicateur
+      const gain = S.wheelResult.v * count * S.bonusMultiplier;
+      team.roundScore += gain;
+      S.lastGain = {teamIdx: S.activeTeam, amount: gain, ts: Date.now()};
+      S.message = `✅ "${l}" présente ${count}× → +${gain} pts pour ${team.name}${S.bonusMultiplier > 1 ? ` (×${S.bonusMultiplier})` : ''} !`;
+    } else {
+      S.message = `✅ "${l}" est dans la phrase (${count}×) !`;
+    }
+
+    S.phase = 'idle'; S.wheelResult = null; S.bonusMultiplier = 1;
+    sound('found');
+    checkAutoWin();
+  } else {
+    S.wrongOnly.push(l);
+    S.message = `❌ "${l}" n'est pas dans la phrase.`;
+    S.phase = 'idle'; S.wheelResult = null; S.bonusMultiplier = 1;
+    sound('notfound');
+    moveToNextTeam(false);
+  }
+
+  inp.value = '';
+  resetTimer();
+  saveState();
+}
+
+// Résoudre la phrase
+function judgeSolve(correct) {
+  if (!IS_HOST) return;
+  const ph = S.phrases[S.manche];
+  const team = S.teams[S.activeTeam];
+  const si = document.getElementById('solveInp');
+
+  saveUndo();
+
+  if (correct) {
+    if (ph) {
+      const unique = [...new Set(ph.text.toUpperCase().replace(/[^A-ZÀÈÙÉÊÎÔÛÂ]/g, '').split(''))];
+      S.revealed = unique;
+    }
+    const bonus = 500;
+    team.roundScore += bonus;
+    S.message = `🎉 ${team.name} a résolu la phrase ! +${bonus} pts bonus !`;
+    S.overlay = {icon:'🎉', title:`${team.name} a gagné la manche !`, sub:`Bonus +${bonus} pts !`};
+    sound('win_round');
+    saveState();
+    setTimeout(() => { S.overlay = null; saveState(); endRound(); }, 2500);
+  } else {
+    const lost = team.roundScore;
+    team.roundScore = 0;
+    S.message = `❌ Mauvaise réponse — ${team.name} perd ${lost} pts.`;
+    sound('banqueroute');
+    showBankFlash();
+    moveToNextTeam(false);
+    saveState();
+  }
+
+  if (si) si.value = '';
+}
+
+// Vérifier si toutes les lettres sont révélées
+function checkAutoWin() {
+  const ph = S.phrases[S.manche];
+  if (!ph) return;
+  const unique = [...new Set(ph.text.toUpperCase().replace(/[^A-ZÀÈÙÉÊÎÔÛÂ]/g, '').split(''))];
+  if (unique.every(c => S.revealed.includes(c))) {
+    S.message = '🎉 Toutes les lettres révélées ! Fin de manche.';
+    saveState();
+    setTimeout(() => endRound(), 1800);
+  }
+}
+
+// Hold-Up : sélection de la cible
+let holdupSelectedIdx = null;
+
+function renderHoldupPanel() {
+  if (!IS_HOST) return;
+  const panel = document.getElementById('holdupPanel');
+  const list  = document.getElementById('holdupList');
+  const confirmBtn = document.getElementById('holdupConfirmBtn');
+
+  if (S.phase !== 'event' || S.eventType !== 'holdup') {
+    panel.style.display = 'none'; return;
+  }
+  panel.style.display = 'block';
+
+  list.innerHTML = S.teams.map((t, i) => {
+    if (i === S.activeTeam) return ''; // Ne peut pas se voler soi-même
+    return `<div class="holdup-team-btn ${holdupSelectedIdx === i ? 'selected' : ''}" onclick="selectHoldupTarget(${i})">
+      <div class="holdup-dot" style="background:${t.color}"></div>
+      <div class="holdup-name">${esc(t.name)}</div>
+      <div class="holdup-score">${t.roundScore} pts ce tour</div>
+    </div>`;
+  }).join('');
+
+  confirmBtn.disabled = holdupSelectedIdx === null;
+}
+
+function selectHoldupTarget(idx) {
+  holdupSelectedIdx = idx;
+  renderHoldupPanel();
+}
+
+function confirmHoldup() {
+  if (holdupSelectedIdx === null) return;
+  const victim = S.teams[holdupSelectedIdx];
+  const attacker = S.teams[S.activeTeam];
+  const stolen = victim.roundScore;
+  attacker.roundScore += stolen;
+  victim.roundScore = 0;
+  S.phase = 'idle'; S.eventType = null; S.holdupTarget = holdupSelectedIdx;
+  S.lastGain = {teamIdx: S.activeTeam, amount: stolen, ts: Date.now()};
+  S.message = `🔫 ${attacker.name} vole ${stolen} pts à ${victim.name} !`;
+  S.overlay = {icon:'🔫', title:`${attacker.name} a volé ${stolen} pts !`, sub:`${victim.name} perd tous ses points de manche.`};
+  sound('holdup');
+  holdupSelectedIdx = null;
+  saveState();
+  setTimeout(() => { S.overlay = null; saveState(); moveToNextTeam(false); }, 3000);
+}
+
+// ── QUIZ ──
+function renderQuizPanel() {
+  if (!IS_HOST) return;
+  const panel = document.getElementById('quizPanel');
+  if (S.phase !== 'event' || S.eventType !== 'quiz') { panel.style.display = 'none'; return; }
+  panel.style.display = 'block';
+  const q = S.quizContent;
+  if (!q) return;
+  const correct = q.options[q.correct];
+  document.getElementById('quizDisplay').innerHTML =
+    `<b>${q.emoji} ${q.question}</b><br>` +
+    q.options.map((o, i) => `<span style="color:${i===q.correct?'#8DC63F':'rgba(255,255,255,.5)'};">${String.fromCharCode(65+i)}. ${o}${i===q.correct?' ✅':''}</span>`).join('<br>');
+  // Boutons par équipe pour attribuer les points
+  document.getElementById('quizTeamBtns').innerHTML = S.teams.map((t, i) =>
+    `<button class="btn btn-xs btn-ghost" style="border-color:${t.color}44;color:${t.color};justify-content:flex-start;gap:6px;border-radius:7px;padding:5px 9px"
+      onclick="awardQuiz(${i})">
+      <span style="width:7px;height:7px;border-radius:50%;background:${t.color};display:inline-block"></span>
+      ${esc(t.name)} → +${q.points} pts
+    </button>`
+  ).join('');
+}
+
+function awardQuiz(teamIdx) {
+  const q = S.quizContent;
+  if (!q) return;
+  const team = S.teams[teamIdx];
+  team.roundScore += q.points;
+  S.lastGain = {teamIdx, amount: q.points, ts: Date.now()};
+  S.message = `🧠 ${team.name} remporte le quiz ! +${q.points} pts !`;
+  S.overlay = {icon:'🧠', title:`${team.name} a la bonne réponse !`, sub:`+${q.points} pts · Réponse : ${q.options[q.correct]}`};
+  sound('win_round');
+  S.phase = 'idle'; S.eventType = null; S.quizContent = null;
+  saveState();
+  setTimeout(() => { S.overlay = null; saveState(); }, 3000);
+}
+
+function skipQuiz() {
+  S.phase = 'idle'; S.eventType = null; S.quizContent = null;
+  S.message = 'Quiz passé — aucun point attribué.';
+  saveState();
+}
+
+// ── DÉFI ──
+function renderDefiPanel() {
+  if (!IS_HOST) return;
+  const panel = document.getElementById('defiPanel');
+  if (S.phase !== 'event' || S.eventType !== 'defi') { panel.style.display = 'none'; return; }
+  panel.style.display = 'block';
+  const d = S.defiContent;
+  if (!d) return;
+  document.getElementById('defiDisplay').innerHTML =
+    `<b>${d.emoji} ${d.title}</b>${d.timer > 0 ? ` <span style="color:var(--gold)">⏱ ${d.timer}s</span>` : ''}<br>${d.text}`;
+  document.getElementById('defiTeamBtns').innerHTML = S.teams.map((t, i) =>
+    `<button class="btn btn-xs btn-ghost" style="border-color:${t.color}44;color:${t.color};justify-content:flex-start;gap:6px;border-radius:7px;padding:5px 9px"
+      onclick="awardDefi(${i})">
+      <span style="width:7px;height:7px;border-radius:50%;background:${t.color};display:inline-block"></span>
+      ${esc(t.name)} réussit → +${d.points} pts
+    </button>`
+  ).join('');
+}
+
+function awardDefi(teamIdx) {
+  const d = S.defiContent;
+  if (!d) return;
+  const team = S.teams[teamIdx];
+  team.roundScore += d.points;
+  S.lastGain = {teamIdx, amount: d.points, ts: Date.now()};
+  S.message = `⚡ ${team.name} remporte le défi ! +${d.points} pts !`;
+  S.overlay = {icon: d.emoji, title:`${team.name} réussit le défi !`, sub:`+${d.points} pts !`};
+  sound('win_round');
+  S.phase = 'idle'; S.eventType = null; S.defiContent = null;
+  saveState();
+  setTimeout(() => { S.overlay = null; saveState(); }, 3000);
+}
+
+function skipDefi() {
+  S.phase = 'idle'; S.eventType = null; S.defiContent = null;
+  S.message = 'Défi passé — aucun point attribué.';
+  saveState();
+}
+
+// ── BONUS QUESTION (phrase avec bonusQ) ──
+function renderBonusQPanel() {
+  if (!IS_HOST) return;
+  const panel = document.getElementById('bonusQPanel');
+  const ph = S.phrases[S.manche];
+  // Afficher si la manche a une bonusQ ET que la phrase est entièrement révélée
+  const allRevealed = ph && ph.bonusQ && (() => {
+    const unique = [...new Set(ph.text.toUpperCase().replace(/[^A-ZÀÈÙÉÊÎÔÛÂ]/g,'').split(''))];
+    return unique.every(c => S.revealed.includes(c));
+  })();
+  if (!allRevealed) { panel.style.display = 'none'; return; }
+  panel.style.display = 'block';
+  const bq = ph.bonusQ;
+  document.getElementById('bonusQDisplay').innerHTML =
+    `<b style="color:var(--gold)">⭐ ${bq.question}</b><br>` +
+    `<span style="color:rgba(255,255,255,.4);font-size:.62rem">Indice : ${bq.hint} · +${bq.points} pts</span>`;
+  document.getElementById('bonusQTeamBtns').innerHTML = S.teams.map((t, i) =>
+    `<button class="btn btn-xs btn-ghost" style="border-color:${t.color}44;color:${t.color};justify-content:flex-start;gap:5px;border-radius:7px;padding:4px 8px"
+      onclick="awardBonusQ(${i})">
+      <span style="width:6px;height:6px;border-radius:50%;background:${t.color};display:inline-block"></span>
+      ${esc(t.name)} a trouvé → +${bq.points} pts
+    </button>`
+  ).join('');
+}
+
+function awardBonusQ(teamIdx) {
+  const ph = S.phrases[S.manche];
+  if (!ph || !ph.bonusQ) return;
+  const bq = ph.bonusQ;
+  const team = S.teams[teamIdx];
+  team.score += bq.points; // bonus direct sur le total
+  S.lastGain = {teamIdx, amount: bq.points, ts: Date.now()};
+  S.message = `⭐ ${team.name} répond correctement au bonus ! +${bq.points} pts !`;
+  S.overlay = {icon:'⭐', title:`Bonus pour ${team.name} !`, sub:`+${bq.points} pts · ${bq.answer}`};
+  sound('supercash');
+  saveState();
+  setTimeout(() => { S.overlay = null; saveState(); }, 3000);
+}
+
+// Passer à l'équipe suivante/précédente
+function moveToNextTeam(doSave = true) {
+  S.activeTeam = (S.activeTeam + 1) % S.teams.length;
+  S.phase = 'idle'; S.wheelResult = null;
+  resetTimer();
+  if (doSave) saveState();
+}
+
+function nextTeam() { saveUndo(); moveToNextTeam(true); }
+function prevTeam() {
+  saveUndo();
+  S.activeTeam = (S.activeTeam - 1 + S.teams.length) % S.teams.length;
+  S.phase = 'idle'; S.wheelResult = null;
+  resetTimer();
+  saveState();
+}
+
+function setActiveTeam(i) { saveUndo(); S.activeTeam = i; S.phase = 'idle'; S.wheelResult = null; saveState(); }
+function adjScore(i, d) { S.teams[i].score = Math.max(0, S.teams[i].score + d); saveState(); }
+function renameTeam(i, n) { S.teams[i].name = n; saveState(); }
+
+function setActiveManche(i) {
+  if (i === S.manche && !confirm(`Recommencer la manche ${i+1} ? Les lettres révélées seront effacées.`)) return;
+  saveUndo();
+  S.manche = i; S.revealed = []; S.tried = []; S.wrongOnly = [];
+  S.wheelResult = null; S.phase = 'idle'; S.message = '';
+  S.eventType = null; S.bonusMultiplier = 1;
+  saveState();
+}
+
+function setLT(t) { S.letterType = t; render(); }
+let editM = 0;
+function setEditM(i) { editM = i; renderHost(); }
+function updPhrase(i, k, v) {
+  if (!S.phrases[i]) S.phrases[i] = {text:'', category:'', bonusQ: null};
+  S.phrases[i][k] = k === 'text' ? v.toUpperCase() : v;
+  saveState();
+}
+
+function toggleBonusQ(i, on) {
+  if (!S.phrases[i]) return;
+  if (on) {
+    S.phrases[i].bonusQ = {question:'', answer:'', hint:'', points:100};
+  } else {
+    S.phrases[i].bonusQ = null;
+  }
+  saveState();
+}
+
+function updBonusQ(i, k, v) {
+  if (!S.phrases[i] || !S.phrases[i].bonusQ) return;
+  S.phrases[i].bonusQ[k] = k === 'points' ? +v : v;
+  saveState();
+}
+
+function revealAll() {
+  const ph = S.phrases[S.manche];
+  if (!ph) return;
+  saveUndo();
+  S.revealed = [...new Set(ph.text.toUpperCase().replace(/[^A-ZÀÈÙÉÊÎÔÛÂ]/g, '').split(''))];
+  saveState();
+}
+
+function resetRound() {
+  if (!confirm('Remettre la manche à zéro ?')) return;
+  saveUndo();
+  S.revealed = []; S.tried = []; S.wrongOnly = [];
+  S.wheelResult = null; S.phase = 'idle'; S.message = '';
+  S.eventType = null; S.bonusMultiplier = 1;
+  S.teams.forEach(t => t.roundScore = 0);
+  saveState();
+}
+
+function endRound() {
+  S.teams.forEach(t => { t.score += t.roundScore; t.roundScore = 0; });
+  if (S.manche >= S.phrases.length - 1) {
+    S.gameOver = true; S.phase = 'gameEnd';
+    saveState();
+    launchConfetti();
+  } else {
+    S.manche++;
+    S.revealed = []; S.tried = []; S.wrongOnly = [];
+    S.wheelResult = null; S.phase = 'idle';
+    S.eventType = null; S.bonusMultiplier = 1;
+    S.message = `Manche ${S.manche} terminée ! Manche ${S.manche + 1} commence.`;
+    saveState();
+  }
+}
+
+function endRoundManual() {
+  if (!confirm(`Terminer la manche ${S.manche + 1} et additionner les scores ?`)) return;
+  saveUndo();
+  endRound();
+}
+
+function showPodium() {
+  if (!confirm('Afficher le podium final maintenant ?')) return;
+  saveUndo();
+  S.teams.forEach(t => { t.score += t.roundScore; t.roundScore = 0; });
+  S.gameOver = true; S.phase = 'gameEnd';
+  saveState();
+  launchConfetti();
+}
+
+let debugMode = false;
+function toggleDebug() {
+  debugMode = !debugMode;
+  const fc = document.getElementById('forceCases');
+  if (fc) fc.style.display = debugMode ? 'flex' : 'none';
+}
+
+/* ════════════════════════════════════════════════════════════
+   §7. TIMER
+════════════════════════════════════════════════════════════ */
+let timerDur = 45;
+let timerLeft = 45;
+let timerRunning = false;
+let timerInterval = null;
+
+function setTimerDur(d) { timerDur = d; timerLeft = d; renderTimerHost(); }
+
+function toggleTimer() {
+  if (timerRunning) stopTimer();
+  else startTimer();
+}
+
+function startTimer() {
+  if (timerRunning) return;
+  timerRunning = true;
+  timerInterval = setInterval(() => {
+    timerLeft = Math.max(0, timerLeft - 1);
+    renderTimerHost();
+    renderTimerDisplay();
+    if (timerLeft === 0) { stopTimer(); sound('timer_end'); }
+  }, 1000);
+  const btn = document.getElementById('timerToggleBtn');
+  if (btn) btn.textContent = '⏸ Pause';
+  renderTimerHost();
+}
+
+function stopTimer() {
+  timerRunning = false;
+  clearInterval(timerInterval);
+  const btn = document.getElementById('timerToggleBtn');
+  if (btn) btn.textContent = '▶ Démarrer';
+  renderTimerHost();
+}
+
+function resetTimer() {
+  stopTimer();
+  timerLeft = timerDur;
+  renderTimerHost();
+  renderTimerDisplay();
+}
+
+function renderTimerHost() {
+  const el = document.getElementById('hTimerDisp');
+  if (!el) return;
+  el.textContent = timerLeft + 's';
+  el.classList.toggle('urgent', timerLeft <= 10 && timerLeft > 0);
+}
+
+function renderTimerDisplay() {
+  const el = document.getElementById('dTimer');
+  if (!el) return;
+  // Le timer n'est visible sur l'écran que s'il tourne
+  // On synchronise via le state pour les écrans esclaves... simplifié ici :
+  // le timer est géré localement sur le host
+  if (IS_HOST) {
+    el.textContent = timerLeft;
+    el.classList.toggle('urgent', timerLeft <= 10 && timerLeft > 0);
+    el.classList.toggle('off', !timerRunning && timerLeft === timerDur);
+  }
+}
+
+/* ════════════════════════════════════════════════════════════
+   §8. SONS — Web Audio API (aucun fichier externe)
+════════════════════════════════════════════════════════════ */
+let audioCtx = null;
+let audioEnabled = false;
+
+function getAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function unlockAudio() {
+  try {
+    const ctx = getAudio();
+    if (ctx.state === 'suspended') ctx.resume();
+    audioEnabled = true;
+    document.getElementById('audioUnlock').style.display = 'none';
+  } catch(e) {}
+}
+
+function playTone(freq, dur, type = 'sine', vol = 0.25, delay = 0) {
+  if (!audioEnabled && !IS_HOST) return;
+  try {
+    const ctx = getAudio();
+    if (ctx.state === 'suspended') { audioEnabled = false; document.getElementById('audioUnlock').style.display = 'flex'; return; }
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, ctx.currentTime + delay);
+    gain.gain.setValueAtTime(vol, ctx.currentTime + delay);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + dur);
+    osc.start(ctx.currentTime + delay);
+    osc.stop(ctx.currentTime + delay + dur + 0.05);
+    audioEnabled = true;
+  } catch(e) {}
+}
+
+function sound(type) {
+  if (!IS_HOST) return;
+  switch(type) {
+    case 'spin_start': for (let i=0; i<3; i++) playTone(440+i*80, 0.08, 'sine', 0.15, i*0.05); break;
+    case 'spin_end':   playTone(660, 0.15, 'sine', 0.2); break;
+    case 'found':
+      playTone(523, 0.12, 'sine', 0.22);
+      playTone(659, 0.12, 'sine', 0.22, 0.12);
+      playTone(784, 0.25, 'sine', 0.22, 0.24);
+      break;
+    case 'notfound':   playTone(180, 0.4, 'sawtooth', 0.15); break;
+    case 'banqueroute':
+      for (let i=0; i<5; i++) playTone(440-i*45, 0.14, 'square', 0.12, i*0.12);
+      break;
+    case 'passe':      playTone(330, 0.15, 'sine', 0.18); playTone(220, 0.2, 'sine', 0.18, 0.15); break;
+    case 'holdup':     playTone(200, 0.15, 'square', 0.2); playTone(150, 0.3, 'square', 0.2, 0.15); break;
+    case 'caverne':    playTone(880, 0.1, 'sine', 0.18); playTone(1100, 0.25, 'sine', 0.2, 0.1); break;
+    case 'supercash':  [523,659,784,1047].forEach((f,i) => playTone(f, 0.18, 'sine', 0.2, i*0.1)); break;
+    case 'mystere':    [440,550,660,880].forEach((f,i) => playTone(f, 0.12, 'sine', 0.18, i*0.08)); break;
+    case 'win_round':  [523,659,784,1047,1318].forEach((f,i) => playTone(f, 0.25, 'sine', 0.22, i*0.12)); break;
+    case 'timer_end':  [880,660,440].forEach((f,i) => playTone(f, 0.2, 'square', 0.15, i*0.15)); break;
+    case 'undo':       playTone(440, 0.12, 'sine', 0.15); playTone(330, 0.12, 'sine', 0.15, 0.12); break;
+  }
+}
+
+// Activer l'audio au premier clic
+document.addEventListener('click', () => {
+  if (!audioEnabled) { try { unlockAudio(); } catch(e) {} }
+}, {once: true});
+
+/* ════════════════════════════════════════════════════════════
+   §9. RENDU — HOST
+════════════════════════════════════════════════════════════ */
+function renderHost() {
+  if (!IS_HOST) return;
+  const ph = S.phrases[S.manche];
+  const at = S.teams[S.activeTeam];
+  if (!at) return;
+
+  // Phase badge
+  const pLabels = {
+    idle:     '🎡 Tourner la roue',
+    spinning: '⏳ Rotation…',
+    letter:   '🔤 Proposer une lettre',
+    event:    `🎯 ${S.eventType ? S.eventType.toUpperCase() : 'Événement'}`,
+    roundEnd: '🏁 Fin de manche',
+    gameEnd:  '🏆 Partie terminée',
+  };
+  const phEl = document.getElementById('hPhaseBadge');
+  if (phEl) phEl.textContent = pLabels[S.phase] || S.phase;
+  const mlEl = document.getElementById('hMancheLabel');
+  if (mlEl) mlEl.textContent = `M${S.manche+1}/4`;
+
+  // Roue badge résultat — l'animateur voit TOUJOURS le résultat (pas de suspense côté hôte)
+  const wr = S.wheelResult;
+  const wrEl = document.getElementById('hWrBadge');
+  if (wrEl) {
+    if (wr) {
+      const BG  = {pts:'rgba(0,170,175,.12)', banqueroute:'rgba(220,38,38,.14)', passe:'rgba(31,41,55,.55)', holdup:'rgba(127,29,29,.18)', caverne:'rgba(12,74,110,.18)', mystere:'rgba(76,29,149,.18)', supercash:'rgba(255,215,0,.12)'};
+      const COL = {pts:'#FFD700', banqueroute:'#F87171', passe:'#9CA3AF', holdup:'#FCA5A5', caverne:'#38BDF8', mystere:'#A78BFA', supercash:'#FFD700'};
+      wrEl.style.background = BG[wr.t] || '';
+      wrEl.style.color = COL[wr.t] || '#fff';
+      wrEl.style.borderColor = (COL[wr.t] || '#fff') + '33';
+      wrEl.textContent = wr.t === 'pts'
+        ? `${wr.v} pts/lettre${S.bonusMultiplier > 1 ? ` × ${S.bonusMultiplier} = ${wr.v * S.bonusMultiplier}` : ''}`
+        : `▶ ${wr.l}`;
+    } else {
+      wrEl.style.background = 'rgba(255,255,255,.04)';
+      wrEl.style.color = 'rgba(255,255,255,.25)';
+      wrEl.style.borderColor = 'transparent';
+      wrEl.textContent = S.phase === 'spinning' ? '⏳ Rotation en cours…' : 'Cliquer pour tourner';
+    }
+  }
+
+  // Letter hint
+  const hint = document.getElementById('hLetterHint');
+  if (hint) {
+    if (S.phase === 'letter') hint.textContent = `Roue: ${wr ? wr.l : '—'}. Proposez une ${S.letterType === 'V' ? 'voyelle (−250 pts)' : 'consonne'}.`;
+    else if (S.letterType === 'V') hint.textContent = 'Voyelle active — pas besoin de tourner la roue.';
+    else hint.textContent = 'Tournez la roue puis proposez une consonne.';
+  }
+
+  // Toggle
+  document.getElementById('togC')?.classList.toggle('on', S.letterType === 'C');
+  document.getElementById('togV')?.classList.toggle('on', S.letterType === 'V');
+
+  // Plateau aperçu
+  const catEl = document.getElementById('hCatLbl');
+  if (catEl) catEl.textContent = ph ? `Catégorie : ${ph.category}` : '—';
+  const hB = document.getElementById('hBoard');
+  if (hB) {
+    if (ph) hB.innerHTML = buildBoard(ph.text, S.revealed, true);
+    else hB.innerHTML = '<div style="color:rgba(255,255,255,.16);font-size:.75rem">Aucune phrase chargée</div>';
+  }
+
+  // Lettres essayées
+  const trEl = document.getElementById('hTried');
+  if (trEl) trEl.innerHTML = S.tried.map(l => {
+    const ok = ph && ph.text.toUpperCase().includes(l);
+    return `<div style="width:18px;height:18px;border-radius:3px;border:1.5px solid ${ok ? 'rgba(141,198,63,.4)' : 'rgba(255,255,255,.09)'};display:flex;align-items:center;justify-content:center;font-family:'Oswald',sans-serif;font-size:.65rem;color:${ok ? '#8DC63F' : 'rgba(255,255,255,.28)'};">${l}</div>`;
+  }).join('');
+
+  // Équipe active
+  const anEl = document.getElementById('hActiveName');
+  if (anEl) { anEl.textContent = at.name; anEl.style.color = at.color; }
+  const rsEl = document.getElementById('hRoundScore');
+  if (rsEl) rsEl.textContent = `(+${at.roundScore} pts ce tour)`;
+
+  // Message
+  const msgEl = document.getElementById('hMsg');
+  if (msgEl) msgEl.textContent = S.message || '';
+
+  // Liste équipes
+  const tl = document.getElementById('hTeamList');
+  if (tl) tl.innerHTML = S.teams.map((t, i) =>
+    `<div class="trow ${i === S.activeTeam ? 'active' : ''}" onclick="setActiveTeam(${i})">
+      <div class="tdot" style="background:${t.color}"></div>
+      <input class="tname-inp" value="${esc(t.name)}" oninput="renameTeam(${i},this.value)" onclick="event.stopPropagation()">
+      <button class="sadj" onclick="event.stopPropagation();adjScore(${i},-50)">−</button>
+      <span class="tscore" style="color:${t.color}">${t.score}</span>
+      <button class="sadj" onclick="event.stopPropagation();adjScore(${i},50)">+</button>
+    </div>`
+  ).join('');
+
+  // Tabs manches
+  const tabs = document.getElementById('hMTabs');
+  if (tabs) tabs.innerHTML = [0,1,2,3].map(i =>
+    `<button class="mtab ${editM === i ? 'on' : ''}" onclick="setEditM(${i})">M${i+1}</button>`
+  ).join('');
+
+  // Éditeur phrase + bonus Q
+  const ep = S.phrases[editM] || {text:'', category:'', bonusQ: null};
+  const bq = ep.bonusQ || {question:'', answer:'', hint:'', points:100};
+  const hasBQ = !!ep.bonusQ;
+  const pe = document.getElementById('hPhraseEditor');
+  if (pe) pe.innerHTML = `
+    <div style="margin-bottom:6px">
+      <div style="font-size:.58rem;color:rgba(255,255,255,.25);margin-bottom:3px">Phrase à deviner :</div>
+      <textarea class="phrase-ta" rows="2" placeholder="PHRASE EN MAJUSCULES…" oninput="updPhrase(${editM},'text',this.value)">${esc(ep.text)}</textarea>
+    </div>
+    <div style="margin-bottom:8px">
+      <div style="font-size:.58rem;color:rgba(255,255,255,.25);margin-bottom:3px">Catégorie / Thème :</div>
+      <input class="cat-inp" type="text" value="${esc(ep.category)}" placeholder="Ex: Culture Belge" oninput="updPhrase(${editM},'category',this.value)">
+    </div>
+    <div style="border-top:1px solid rgba(255,255,255,.07);padding-top:8px;margin-top:4px">
+      <div style="display:flex;align-items:center;gap:7px;margin-bottom:7px">
+        <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:.62rem;color:rgba(255,255,255,.5)">
+          <input type="checkbox" ${hasBQ ? 'checked' : ''} onchange="toggleBonusQ(${editM},this.checked)"
+            style="accent-color:var(--gold);width:13px;height:13px">
+          <span style="color:var(--gold);font-weight:800">⭐ Question bonus</span>
+        </label>
+      </div>
+      ${hasBQ ? `
+      <div style="display:flex;flex-direction:column;gap:5px;background:rgba(255,215,0,.04);border:1px solid rgba(255,215,0,.12);border-radius:8px;padding:8px">
+        <div style="font-size:.57rem;color:rgba(255,215,0,.5)">Question affichée au public :</div>
+        <input class="cat-inp" type="text" value="${esc(bq.question)}" placeholder="QUI A … ?" oninput="updBonusQ(${editM},'question',this.value)">
+        <div style="font-size:.57rem;color:rgba(255,215,0,.5)">Réponse correcte :</div>
+        <input class="cat-inp" type="text" value="${esc(bq.answer)}" placeholder="La réponse…" oninput="updBonusQ(${editM},'answer',this.value)">
+        <div style="font-size:.57rem;color:rgba(255,215,0,.5)">Indice (affiché chez l'animateur) :</div>
+        <input class="cat-inp" type="text" value="${esc(bq.hint)}" placeholder="Indice…" oninput="updBonusQ(${editM},'hint',this.value)">
+        <div style="display:flex;align-items:center;gap:6px">
+          <div style="font-size:.57rem;color:rgba(255,215,0,.5)">Points :</div>
+          <input type="number" min="50" max="500" step="50" value="${bq.points}"
+            style="width:60px;background:rgba(255,255,255,.08);border:1px solid rgba(255,215,0,.2);border-radius:6px;color:var(--gold);padding:3px 6px;font-size:.72rem;text-align:center;outline:none"
+            onchange="updBonusQ(${editM},'points',+this.value)">
+        </div>
+      </div>` : ''}
+    </div>
+    <div style="border-top:1px solid rgba(255,255,255,.07);padding-top:8px;margin-top:8px">
+      <button class="btn btn-xs btn-ghost btn-w" onclick="openQuizDefiEditor()" style="border-color:rgba(0,170,175,.3);color:var(--teal)">
+        🧠 Éditer les questions Quiz & Défis →
+      </button>
+    </div>`;
+
+  // Manche active
+  const mab = document.getElementById('hMancheActiveBtns');
+  if (mab) mab.innerHTML = [0,1,2,3].map(i =>
+    `<button class="btn btn-sm ${S.manche === i ? 'btn-teal' : 'btn-ghost'}" onclick="setActiveManche(${i})">Manche ${i+1}</button>`
+  ).join('');
+
+  // Panneaux spéciaux
+  renderQuizPanel();
+  renderDefiPanel();
+  renderHoldupPanel();
+  renderBonusQPanel();
+}
+
+/* ════════════════════════════════════════════════════════════
+   §10. RENDU — DISPLAY
+════════════════════════════════════════════════════════════ */
+function renderDisplay() {
+  if (!IS_DISP) return;
+  const ph = S.phrases[S.manche];
+  const at = S.teams[S.activeTeam];
+
+  // En-tête
+  document.getElementById('dCat').textContent = ph ? ph.category.toUpperCase() : '—';
+  document.getElementById('dPips').innerHTML = [0,1,2,3].map(i =>
+    `<div class="d-pip ${i < S.manche ? 'done' : i === S.manche ? 'active' : ''}">${i+1}</div>`
+  ).join('');
+
+  // Plateau
+  const dB = document.getElementById('dBoard');
+  if (ph) dB.innerHTML = buildBoard(ph.text, S.revealed);
+  else dB.innerHTML = '<div style="color:rgba(255,255,255,.16)">En attente de la prochaine manche…</div>';
+
+  // Lettres essayées
+  const ts = document.getElementById('dTriedStrip');
+  ts.style.opacity = S.tried.length ? '1' : '0';
+  document.getElementById('dTriedLetters').innerHTML = S.tried.map(l =>
+    `<div class="d-tl ${S.wrongOnly.includes(l) ? 'bad' : ''}">${l}</div>`
+  ).join('');
+
+  // Équipe active
+  const tnEl = document.getElementById('dTurnName');
+  tnEl.textContent = at ? at.name : '—';
+  tnEl.style.color  = at ? at.color : '#fff';
+
+  // Résultat pill — SUSPENSE : caché pendant la rotation, révélé après
+  const wr = S.wheelResult;
+  const pill = document.getElementById('dRPill');
+
+  if (S.phase === 'spinning' || (S.wheelSpinning && !S.wheelResultVisible)) {
+    // Roue en train de tourner → indicateur discret sans révéler le résultat
+    pill.className = 'd-rpill show spinning-hint';
+    pill.textContent = '🎡 La roue tourne…';
+  } else if (wr && S.wheelResultVisible && (S.phase === 'letter' || S.phase === 'event' || S.phase === 'idle')) {
+    const COL = {pts:'#FFD700', banqueroute:'#F87171', passe:'#9CA3AF', holdup:'#FCA5A5', caverne:'#38BDF8', mystere:'#A78BFA', supercash:'#FFD700'};
+    const BG  = {pts:'rgba(0,170,175,.16)', banqueroute:'rgba(220,38,38,.2)', passe:'rgba(55,65,81,.5)', holdup:'rgba(127,29,29,.2)', caverne:'rgba(14,116,144,.2)', mystere:'rgba(109,40,217,.2)', supercash:'rgba(255,215,0,.16)'};
+    pill.style.background  = BG[wr.t]  || '';
+    pill.style.color       = COL[wr.t] || '#fff';
+    pill.style.borderColor = (COL[wr.t] || '#fff') + '44';
+    pill.textContent = wr.t === 'pts'
+      ? `${wr.v} pts/lettre${S.bonusMultiplier > 1 ? ` ×${S.bonusMultiplier}` : ''}`
+      : wr.l;
+    pill.classList.add('show');
+    pill.classList.remove('spinning-hint');
+  } else {
+    pill.className = 'd-rpill';
+  }
+
+  // Message
+  document.getElementById('dMsg').textContent = S.message || '';
+
+  // Scores — affichage enrichi : total + score de manche
+  document.getElementById('dScores').innerHTML = S.teams.map((t, i) => {
+    const isActive = i === S.activeTeam;
+    const hasRound = t.roundScore > 0;
+    return `<div class="d-srow ${isActive ? 'active' : ''}" id="dsrow-${i}" style="--active-c:${t.color}">
+      <div class="d-sdot" style="background:${t.color}"></div>
+      <div class="d-sname">${esc(t.name)}</div>
+      <div class="d-score-block">
+        <div class="d-stot" style="color:${t.color}">${t.score}</div>
+        <div class="d-srnd ${hasRound ? 'positive' : ''}">+${t.roundScore}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Roue (si pas en animation)
+  if (!sAnimating) drawWheel(document.getElementById('dWheelCvs'), sAngle);
+
+  // Overlay
+  const ovEl = document.getElementById('dOverlay');
+  if (S.overlay) {
+    document.getElementById('dOvIcon').textContent  = S.overlay.icon  || '';
+    document.getElementById('dOvTitle').textContent = S.overlay.title || '';
+    document.getElementById('dOvSub').textContent   = S.overlay.sub   || '';
+    const cav = document.getElementById('dOvCaverne');
+    // Afficher contenu quiz (QCM)
+    if (S.overlay.quizQuestion) {
+      const opts = (S.overlay.quizOptions || []).map((o, i) =>
+        `<div style="padding:6px 12px;margin:3px 0;border-radius:8px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);font-size:.95rem;">
+          <b style="color:var(--teal)">${String.fromCharCode(65+i)}.</b> ${o}
+        </div>`
+      ).join('');
+      cav.innerHTML = `<div style="font-size:1.05rem;font-weight:800;margin-bottom:10px">${S.overlay.quizQuestion}</div>${opts}`;
+      cav.style.display = 'block';
+    }
+    // Afficher contenu défi
+    else if (S.overlay.defiText) {
+      cav.innerHTML = `<div style="font-size:1rem;line-height:1.6">${S.overlay.defiText}</div>` +
+        (S.overlay.defiTimer > 0 ? `<div style="margin-top:10px;font-size:1.8rem;color:var(--gold);font-family:'Oswald',sans-serif">⏱ ${S.overlay.defiTimer} secondes</div>` : '');
+      cav.style.display = 'block';
+    }
+    else cav.style.display = 'none';
+    ovEl.classList.add('show');
+  } else {
+    ovEl.classList.remove('show');
+  }
+
+  // Podium
+  const goEl = document.getElementById('dGameover');
+  if (S.gameOver) { goEl.classList.add('show'); renderPodium(); }
+  else goEl.classList.remove('show');
+}
+
+function renderPodium() {
+  const sorted = [...S.teams].sort((a, b) => b.score - a.score);
+  const medals = ['🥇','🥈','🥉'];
+  const order  = [sorted[1], sorted[0], sorted[2]].filter(Boolean);
+  const heights = [110, 155, 85];
+  const rankIdx = [1, 0, 2];
+  document.getElementById('dPodium').innerHTML = order.map((t, i) =>
+    `<div class="p-col">
+      <div class="p-nm">${medals[rankIdx[i]]} ${esc(t.name)}</div>
+      <div class="p-sc">${t.score} pts</div>
+      <div class="p-block" style="height:${heights[i]}px;background:${t.color}22;border:2px solid ${t.color}44;"></div>
+    </div>`
+  ).join('');
+  document.getElementById('dFinalList').innerHTML = sorted.map((t, i) =>
+    `<div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.04);border-radius:7px;padding:6px 12px">
+      <span style="font-size:.68rem;color:rgba(255,255,255,.22);min-width:18px">${i+1}.</span>
+      <div style="width:7px;height:7px;border-radius:50%;background:${t.color}"></div>
+      <span style="flex:1;font-size:.8rem;font-weight:800">${esc(t.name)}</span>
+      <span style="font-family:'Oswald',sans-serif;color:${t.color};font-size:.92rem">${t.score}</span>
+    </div>`
+  ).join('');
+}
+
+/* ════════════════════════════════════════════════════════════
+   §11. RENDU — MOBILE
+════════════════════════════════════════════════════════════ */
+function renderMobile() {
+  if (!IS_MOBILE) return;
+  const at = S.teams[S.activeTeam];
+
+  const tnEl = document.getElementById('mobTeamName');
+  tnEl.textContent = at ? at.name : '—';
+  tnEl.style.color  = at ? at.color : '#fff';
+
+  const phaseLabels = {
+    idle:     '🎡 Prêt à tourner !',
+    spinning: '⏳ Rotation en cours…',
+    letter:   '🔤 En train de proposer une lettre',
+    event:    '🎯 Cas spécial en cours',
+    roundEnd: '🏁 Fin de manche',
+    gameEnd:  '🏆 Partie terminée !',
+  };
+  document.getElementById('mobPhaseBadge').textContent = phaseLabels[S.phase] || S.phase;
+
+  const wr = S.wheelResult;
+  const res = document.getElementById('mobResult');
+
+  // SUSPENSE : résultat masqué pendant la rotation
+  if (S.phase === 'spinning' || S.wheelSpinning) {
+    res.className = 'mob-result hidden';
+    res.textContent = '?';
+  } else if (wr && S.wheelResultVisible) {
+    const COL = {pts:'#FFD700', banqueroute:'#F87171', passe:'#9CA3AF', holdup:'#FCA5A5', caverne:'#38BDF8', mystere:'#A78BFA', supercash:'#FFD700'};
+    res.style.color = COL[wr.t] || '#fff';
+    res.textContent = wr.t === 'pts' ? `${wr.v} pts / lettre` : wr.l;
+    res.className = 'mob-result reveal';
+  } else {
+    res.className = 'mob-result';
+    res.style.opacity = '0';
+  }
+
+  const spinBtn = document.getElementById('mobSpinBtn');
+  spinBtn.disabled = S.phase !== 'idle' || S.wheelSpinning;
+
+  if (!sAnimating) drawWheel(document.getElementById('mWheelCvs'), sAngle);
+}
+
+/* ════════════════════════════════════════════════════════════
+   §11b. EFFETS VISUELS : révélation + scores flottants
+════════════════════════════════════════════════════════════ */
+
+// Flash + pop au moment où le résultat de la roue est révélé
+function triggerRevealEffect() {
+  // Flash lumineux
+  const flash = document.getElementById('revealFlash');
+  if (flash) {
+    flash.classList.add('show');
+    setTimeout(() => flash.classList.remove('show'), 180);
+  }
+  // Animation pop sur le pill
+  const pill = document.getElementById('dRPill');
+  if (pill) {
+    pill.classList.remove('reveal-pop');
+    void pill.offsetWidth; // reflow pour redéclencher l'animation
+    pill.classList.add('reveal-pop');
+    setTimeout(() => pill.classList.remove('reveal-pop'), 600);
+  }
+}
+
+// Spawner les "+500" qui flottent au-dessus de l'équipe concernée
+function spawnScoreFloat(teamIdx, amount, color) {
+  const container = document.getElementById('scoreFloats');
+  if (!container) return;
+
+  // Trouver la position de la ligne de score de l'équipe
+  const rowEl = document.getElementById(`dsrow-${teamIdx}`);
+  let x = window.innerWidth * 0.88; // fallback : côté droit
+  let y = window.innerHeight * 0.7;
+
+  if (rowEl) {
+    const rect = rowEl.getBoundingClientRect();
+    x = rect.right - 10;
+    y = rect.top + rect.height / 2;
+  }
+
+  const el = document.createElement('div');
+  el.className = 'score-float';
+  el.textContent = `+${amount}`;
+  el.style.color = color;
+  el.style.left  = (x - 60) + 'px';
+  el.style.top   = (y - 20) + 'px';
+  el.style.textShadow = `0 0 20px ${color}88, 0 2px 8px rgba(0,0,0,.7)`;
+  container.appendChild(el);
+
+  // Animer aussi la ligne de score
+  if (rowEl) {
+    rowEl.classList.remove('just-gained');
+    void rowEl.offsetWidth;
+    rowEl.classList.add('just-gained');
+  }
+
+  setTimeout(() => el.remove(), 1900);
+}
+
+/* ════════════════════════════════════════════════════════════
+   §12. RENDU — DISPATCH
+════════════════════════════════════════════════════════════ */
+function render() {
+  if (IS_HOST)   { renderHost(); renderTimerHost(); }
+  if (IS_DISP)   renderDisplay();
+  if (IS_MOBILE) renderMobile();
+}
+
+/* ════════════════════════════════════════════════════════════
+   §13. UTILITAIRES
+════════════════════════════════════════════════════════════ */
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function showBankFlash() {
+  const el = document.getElementById('bankFlash');
+  el.style.display = 'block';
+  setTimeout(() => el.style.display = 'none', 800);
+}
+
+let confettiRAF = null;
+
+function launchConfetti() {
+  const cvs = document.getElementById('cfCvs');
+  cvs.width = innerWidth; cvs.height = innerHeight;
+  const ctx = cvs.getContext('2d');
+  const cols = ['#FFD700','#F7941D','#00AAAF','#8DC63F','#E91E8C','#fff','#A78BFA','#38BDF8'];
+  let parts = Array.from({length: 240}, () => ({
+    x:  Math.random() * cvs.width, y: -15,
+    vx: (Math.random() - 0.5) * 4, vy: Math.random() * 2.5 + 1.5,
+    s:  Math.random() * 9 + 4,
+    c:  cols[Math.floor(Math.random() * cols.length)],
+    r:  Math.random() * 360, rv: (Math.random() - 0.5) * 8,
+  }));
+  function frame() {
+    ctx.clearRect(0, 0, cvs.width, cvs.height);
+    parts.forEach(p => {
+      p.x += p.vx; p.y += p.vy; p.r += p.rv; p.vy += 0.07;
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.r * Math.PI/180);
+      ctx.fillStyle = p.c; ctx.fillRect(-p.s/2, -p.s/4, p.s, p.s/2);
+      ctx.restore();
+    });
+    parts = parts.filter(p => p.y < cvs.height + 20);
+    if (parts.length) confettiRAF = requestAnimationFrame(frame);
+    else { confettiRAF = null; ctx.clearRect(0, 0, cvs.width, cvs.height); }
+  }
+  if (confettiRAF) cancelAnimationFrame(confettiRAF);
+  confettiRAF = requestAnimationFrame(frame);
+}
+
+function stopConfetti() {
+  if (confettiRAF) { cancelAnimationFrame(confettiRAF); confettiRAF = null; }
+  const cvs = document.getElementById('cfCvs');
+  if (cvs) cvs.getContext('2d').clearRect(0, 0, cvs.width, cvs.height);
+}
+
+/* ════ RESET COMPLET DE LA PARTIE ════ */
+function resetFullGame() {
+  if (!confirm('⚠️ Remettre TOUTE la partie à zéro ?\nScores, lettres, manches et podium seront effacés sur TOUS les écrans.')) return;
+  stopConfetti();
+  // Garder noms/couleurs d'équipes et phrases éditées
+  const savedTeams   = S.teams.map(t => ({name: t.name, color: t.color}));
+  const savedPhrases = S.phrases.map(p => ({...p}));
+  S = defaultState();
+  S.teams   = savedTeams.map(t => ({...t, score: 0, roundScore: 0}));
+  S.phrases = savedPhrases;
+  lastUndo  = null;
+  const undoBtn = document.getElementById('undoBtn');
+  if (undoBtn) undoBtn.disabled = true;
+  resetTimer();
+  // Pousser 3 fois à 0 / 100ms / 350ms pour s'assurer que tous les écrans reçoivent
+  saveState(true, true);
+  setTimeout(() => saveState(true, false), 100);
+  setTimeout(() => saveState(true, false), 350);
+}
+
+window.addEventListener('resize', () => {
+  const c = document.getElementById('cfCvs');
+  c.width = innerWidth; c.height = innerHeight;
+});
+
+/* ════════════════════════════════════════════════════════════
+   §14. INITIALISATION
+════════════════════════════════════════════════════════════ */
+loadState();
+initSync();
+render();
+
+// Dessiner la roue initiale
+const hostCvs  = document.getElementById('hWheelCvs');
+const dispCvs  = document.getElementById('dWheelCvs');
+const mobCvs   = document.getElementById('mWheelCvs');
+if (hostCvs) drawWheel(hostCvs, S.wheelAngle);
+if (dispCvs) drawWheel(dispCvs, sAngle);
+if (mobCvs)  drawWheel(mobCvs,  sAngle);
+
+// Écrans esclaves : demander l'état au HOST + forcer une lecture immédiate du localStorage
+if (!IS_HOST) {
+  // Lire immédiatement l'état le plus récent depuis localStorage
+  try {
+    const raw = localStorage.getItem(SK);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.ts > S.ts) {
+        applyRemoteState(parsed);
+        // Relancer les confettis si la partie était déjà terminée
+        if (S.gameOver) launchConfetti();
+      }
+    }
+  } catch(e) {}
+
+  // Annoncer la présence au host pour recevoir un push d'état
+  setTimeout(() => {
+    sendMessage({type: IS_DISP ? 'SCREEN_HELLO' : 'MOBILE_HELLO'});
+  }, 150);
+  setTimeout(() => {
+    sendMessage({type: IS_DISP ? 'SCREEN_HELLO' : 'MOBILE_HELLO'});
+  }, 600);
+}
+
+// Host : pousser l'état courant au chargement pour synchroniser tous les écrans ouverts
+if (IS_HOST) {
+  setTimeout(() => saveState(true, false), 300);
+}
+</script>
+<!-- ═══════ MODALE ÉDITEUR QUIZ & DÉFIS ═══════ -->
+<div id="qdModal" style="display:none;position:fixed;inset:0;background:rgba(0,5,15,.92);z-index:9000;backdrop-filter:blur(8px);overflow-y:auto;padding:20px">
+  <div style="max-width:820px;margin:0 auto;background:#06111F;border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:20px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="font-family:'Abril Fatface','Georgia',serif;font-size:1.2rem;background:linear-gradient(135deg,#fff,var(--gold));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">
+        Éditeur Quiz &amp; Défis
+      </div>
+      <button class="btn btn-sm btn-ghost" onclick="closeQdModal()">✕ Fermer</button>
+    </div>
+
+    <!-- Tabs -->
+    <div style="display:flex;gap:4px;margin-bottom:14px">
+      <button class="mtab on" id="qdTabQ" onclick="switchQdTab('quiz')" style="flex:none;padding:7px 18px;border-radius:8px;font-size:.72rem">🧠 Questions Quiz (${QUIZ_BANK.length})</button>
+      <button class="mtab" id="qdTabD" onclick="switchQdTab('defi')" style="flex:none;padding:7px 18px;border-radius:8px;font-size:.72rem">⚡ Défis (${DEFI_BANK.length})</button>
+    </div>
+
+    <div id="qdContent"></div>
+  </div>
+</div>
+
+<script>
+/* ════════ ÉDITEUR QUIZ & DÉFIS ════════ */
+let qdTab = 'quiz';
+
+function openQuizDefiEditor() {
+  document.getElementById('qdModal').style.display = 'block';
+  renderQdContent();
+}
+function closeQdModal() {
+  document.getElementById('qdModal').style.display = 'none';
+}
+function switchQdTab(t) {
+  qdTab = t;
+  document.getElementById('qdTabQ').classList.toggle('on', t === 'quiz');
+  document.getElementById('qdTabD').classList.toggle('on', t === 'defi');
+  renderQdContent();
+}
+
+function renderQdContent() {
+  const el = document.getElementById('qdContent');
+  if (!el) return;
+  if (qdTab === 'quiz') {
+    el.innerHTML = QUIZ_BANK.map((q, i) => `
+      <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:12px;margin-bottom:8px">
+        <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px">
+          <input type="text" value="${esc(q.emoji)}" maxlength="2"
+            style="width:36px;text-align:center;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1);border-radius:6px;color:#fff;padding:3px;font-size:1.1rem;outline:none"
+            onchange="QUIZ_BANK[${i}].emoji=this.value">
+          <span style="font-size:.6rem;color:rgba(0,170,175,.7);text-transform:uppercase;letter-spacing:1px">Q${i+1}</span>
+          <input type="number" min="50" max="500" step="50" value="${q.points}"
+            style="width:65px;background:rgba(255,255,255,.08);border:1px solid rgba(255,215,0,.2);border-radius:6px;color:var(--gold);padding:3px 6px;font-size:.72rem;text-align:center;outline:none"
+            onchange="QUIZ_BANK[${i}].points=+this.value"> pts
+        </div>
+        <div style="font-size:.6rem;color:rgba(255,255,255,.3);margin-bottom:3px">Question :</div>
+        <input type="text" value="${esc(q.question)}"
+          style="width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:7px;color:#fff;padding:6px 9px;font-size:.78rem;outline:none;margin-bottom:7px"
+          onchange="QUIZ_BANK[${i}].question=this.value">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">
+          ${q.options.map((o, j) => `
+            <div style="display:flex;align-items:center;gap:4px">
+              <span style="font-size:.65rem;font-weight:800;color:${j===q.correct?'#8DC63F':'rgba(255,255,255,.3)'};min-width:14px">${String.fromCharCode(65+j)}.</span>
+              <input type="text" value="${esc(o)}"
+                style="flex:1;background:rgba(255,255,255,.06);border:1.5px solid ${j===q.correct?'rgba(141,198,63,.35)':'rgba(255,255,255,.08)'};border-radius:6px;color:#fff;padding:4px 7px;font-size:.7rem;outline:none"
+                onchange="QUIZ_BANK[${i}].options[${j}]=this.value">
+              <input type="radio" name="correct_${i}" ${j===q.correct?'checked':''} onchange="QUIZ_BANK[${i}].correct=${j};renderQdContent()"
+                style="accent-color:#8DC63F;cursor:pointer" title="Bonne réponse">
+            </div>`).join('')}
+        </div>
+      </div>`).join('');
+  } else {
+    el.innerHTML = DEFI_BANK.map((d, i) => `
+      <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:12px;margin-bottom:8px">
+        <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px">
+          <input type="text" value="${esc(d.emoji)}" maxlength="2"
+            style="width:36px;text-align:center;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1);border-radius:6px;color:#fff;padding:3px;font-size:1.1rem;outline:none"
+            onchange="DEFI_BANK[${i}].emoji=this.value">
+          <span style="font-size:.6rem;color:rgba(167,139,250,.7);text-transform:uppercase;letter-spacing:1px">D${i+1}</span>
+          <input type="number" min="50" max="500" step="50" value="${d.points}"
+            style="width:65px;background:rgba(255,255,255,.08);border:1px solid rgba(255,215,0,.2);border-radius:6px;color:var(--gold);padding:3px 6px;font-size:.72rem;text-align:center;outline:none"
+            onchange="DEFI_BANK[${i}].points=+this.value"> pts ·
+          <span style="font-size:.6rem;color:rgba(255,255,255,.3)">Timer :</span>
+          <input type="number" min="0" max="300" step="15" value="${d.timer}"
+            style="width:52px;background:rgba(255,255,255,.08);border:1px solid rgba(0,170,175,.2);border-radius:6px;color:var(--teal);padding:3px 5px;font-size:.72rem;text-align:center;outline:none"
+            onchange="DEFI_BANK[${i}].timer=+this.value"> s
+        </div>
+        <div style="font-size:.6rem;color:rgba(255,255,255,.3);margin-bottom:3px">Titre :</div>
+        <input type="text" value="${esc(d.title)}"
+          style="width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:7px;color:#fff;padding:5px 9px;font-size:.78rem;font-weight:800;outline:none;margin-bottom:6px"
+          onchange="DEFI_BANK[${i}].title=this.value">
+        <div style="font-size:.6rem;color:rgba(255,255,255,.3);margin-bottom:3px">Description (affichée sur l'écran) :</div>
+        <textarea rows="2"
+          style="width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.09);border-radius:7px;color:#fff;padding:5px 9px;font-size:.72rem;outline:none;resize:vertical;margin-bottom:4px"
+          onchange="DEFI_BANK[${i}].text=this.value">${esc(d.text)}</textarea>
+        <div style="font-size:.6rem;color:rgba(255,255,255,.3);margin-bottom:3px">Indice animateur :</div>
+        <input type="text" value="${esc(d.hint)}"
+          style="width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:7px;color:rgba(255,255,255,.5);padding:4px 9px;font-size:.68rem;outline:none"
+          onchange="DEFI_BANK[${i}].hint=this.value">
+      </div>`).join('');
+  }
+}
+</script>
+</body>
+</html>
