@@ -99,9 +99,9 @@ button{cursor:pointer;border:none}
 .phrase-board.sm .tile-p{width:13px;font-size:.9rem}
 
 /* Middle zone */
-.d-mid{display:flex;align-items:stretch;flex-shrink:0;height:178px;background:rgba(0,0,0,.42);border-top:1px solid rgba(255,255,255,.05)}
-.d-wcol{width:186px;flex-shrink:0;display:flex;align-items:center;justify-content:center;padding:7px;border-right:1px solid rgba(255,255,255,.05)}
-#dWheelCvs{width:162px;height:162px;display:block}
+.d-mid{display:flex;align-items:stretch;flex-shrink:0;height:165px;background:rgba(0,0,0,.42);border-top:1px solid rgba(255,255,255,.05)}
+.d-wcol{width:172px;flex-shrink:0;display:flex;align-items:center;justify-content:center;padding:6px;border-right:1px solid rgba(255,255,255,.05)}
+#dWheelCvs{width:152px;height:152px;display:block}
 .d-acol{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:12px}
 .d-tlbl{font-size:.52rem;color:rgba(255,255,255,.28);text-transform:uppercase;letter-spacing:2px}
 .d-tname{font-size:clamp(1.2rem,2.2vw,1.9rem);font-weight:700;text-align:center;transition:color .35s}
@@ -119,18 +119,21 @@ button{cursor:pointer;border:none}
 .d-timer.urgent{color:var(--red);animation:tpulse .5s infinite}
 @keyframes tpulse{0%,100%{opacity:1}50%{opacity:.3}}
 
-/* Score bar */
-.d-scorebar{display:flex;flex-shrink:0;height:70px;background:rgba(0,0,0,.6);border-top:2px solid rgba(255,215,0,.1)}
-.d-steam{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:3px 4px;gap:1px;
-  border-right:1px solid rgba(255,255,255,.05);border-top:3px solid transparent;transition:all .3s;overflow:hidden}
+/* Score bar — FIXE, 7 équipes, toujours visibles */
+.d-scorebar{display:flex;flex-shrink:0;height:82px;background:rgba(0,0,0,.75);border-top:2px solid rgba(255,215,0,.15)}
+.d-steam{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4px 5px;gap:2px;
+  border-right:1px solid rgba(255,255,255,.07);border-top:4px solid transparent;transition:all .3s;overflow:hidden}
 .d-steam:last-child{border-right:none}
-.d-steam.active{border-top-color:var(--tc);background:rgba(255,255,255,.05)}
+.d-steam.active{border-top-color:var(--tc);background:rgba(255,255,255,.07)}
 .d-steam.gained{animation:tgain .5s ease}
-@keyframes tgain{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
-.d-sn{font-size:.64rem;font-weight:800;color:rgba(255,255,255,.6);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%}
-.d-sr{font-size:.6rem;font-weight:700;text-align:center;color:rgba(255,255,255,.18);transition:color .3s;min-height:.8em}
+@keyframes tgain{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+/* Nom de l'équipe */
+.d-sn{font-size:clamp(.55rem,.9vw,.8rem);font-weight:800;color:rgba(255,255,255,.75);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%}
+/* Score du tour */
+.d-sr{font-size:clamp(.5rem,.75vw,.7rem);font-weight:700;text-align:center;color:rgba(255,255,255,.2);transition:color .3s;min-height:.85em}
 .d-sr.pos{color:var(--green)}
-.d-st{font-size:.98rem;font-weight:900;text-align:center;transition:all .3s;font-family:'Courier New',monospace}
+/* Score total — le plus important, bien visible */
+.d-st{font-size:clamp(.9rem,1.6vw,1.3rem);font-weight:900;text-align:center;transition:all .3s;font-family:'Courier New',monospace}
 
 /* Overlay */
 .d-ov{position:fixed;inset:0;background:rgba(0,5,18,.93);display:none;align-items:center;justify-content:center;z-index:50;backdrop-filter:blur(8px)}
@@ -330,7 +333,7 @@ audio#apEl{width:100%;display:block}
     <div class="phrase-board" id="dBoard"><div style="color:rgba(255,255,255,.16)">En attente…</div></div>
   </div>
   <div class="d-mid">
-    <div class="d-wcol"><canvas id="dWheelCvs" width="162" height="162"></canvas></div>
+    <div class="d-wcol"><canvas id="dWheelCvs" width="152" height="152"></canvas></div>
     <div class="d-acol">
       <div class="d-tlbl">Au tour de</div>
       <div class="d-tname" id="dTurnName">—</div>
@@ -693,6 +696,7 @@ function defaultState() {
       spinning: false,
     },
     bonusMultiplier: 1,
+    letterType:   'C',  // C = consonne, V = voyelle
     event: {type:null, data:null, resolved:false},
     timerEnd:    null,  // Date.now() + ms (null = pas de timer actif)
     timerDur:    45,    // secondes configurées
@@ -1898,7 +1902,7 @@ function renderPodium(){
 let _myTeam = null;
 
 function initMobile() {
-  const stored = localStorage.getItem('roue_v6_myteam');
+  const stored = localStorage.getItem('roue_v6b_myteam');
   if (stored !== null) {
     _myTeam = parseInt(stored);
     showMobGame();
@@ -1922,14 +1926,14 @@ function showMobGame() {
 }
 function mobPickTeam(idx) {
   _myTeam=idx;
-  localStorage.setItem('roue_v6_myteam',idx);
+  localStorage.setItem('roue_v6b_myteam',idx);
   showMobGame(); sendHello();
   setTimeout(()=>sendHello(),500);
 }
 function mobChangeTeam() {
   sendBye();
   _myTeam=null;
-  localStorage.removeItem('roue_v6_myteam');
+  localStorage.removeItem('roue_v6b_myteam');
   showMobPicker();
 }
 
