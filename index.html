@@ -359,6 +359,12 @@ audio#apEl{width:100%;display:block}
     <div class="podium" id="dPodium"></div>
     <div class="final-list" id="dFinalList"></div>
   </div>
+  <!-- Overlay tirage au sort — affiché sur la projection -->
+  <div id="dDrawOv" style="display:none;position:fixed;inset:0;background:rgba(0,5,20,.97);z-index:250;flex-direction:column;align-items:center;justify-content:center;gap:20px">
+    <div style="font-size:.85rem;font-weight:700;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:4px">🎲 Qui commence ?</div>
+    <div id="dDrawName" style="font-size:clamp(3rem,10vw,7rem);font-weight:900;text-align:center;transition:color .08s,text-shadow .3s;padding:0 20px;line-height:1.1">—</div>
+    <div id="dDrawStatus" style="font-size:1.1rem;color:rgba(255,255,255,.5);text-align:center"></div>
+  </div>
 </div>
 
 <!-- HOST -->
@@ -435,12 +441,15 @@ audio#apEl{width:100%;display:block}
       <div class="panel" id="quizPanel" style="display:none">
         <div class="ptitle" style="color:#38BDF8">🧠 Quiz — Attribuer les points</div>
         <div id="quizInfo" style="font-size:.7rem;color:rgba(255,255,255,.72);line-height:1.55;margin-bottom:8px"></div>
-        <div id="quizTeamBtns"></div>
-        <div style="display:flex;gap:5px;margin-top:6px">
-          <button class="btn btn-xs btn-ghost" id="audioPlayBtn" style="display:none" onclick="playAudio()">▶ Musique</button>
-          <button class="btn btn-xs btn-ghost" id="audioStopBtn" style="display:none" onclick="stopAudio()">⏹</button>
-          <button class="btn btn-xs btn-ghost" style="margin-left:auto" onclick="resolveEvent(null)">⏭️ Passer</button>
+        <div id="audioControls" style="display:none;background:rgba(0,170,175,.08);border:1px solid rgba(0,170,175,.2);border-radius:8px;padding:8px 10px;margin-bottom:8px">
+          <div style="font-size:.58rem;color:rgba(0,170,175,.7);margin-bottom:6px">🎵 Musique — lancée automatiquement</div>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-sm btn-teal" onclick="playAudio()">▶ Relancer</button>
+            <button class="btn btn-sm btn-ghost" onclick="stopAudio()">⏹ Stop</button>
+          </div>
         </div>
+        <div id="quizTeamBtns"></div>
+        <button class="btn btn-xs btn-ghost btn-w" style="margin-top:6px" onclick="resolveEvent(null)">⏭️ Passer</button>
       </div>
 
       <div class="panel" id="defiPanel" style="display:none">
@@ -541,6 +550,8 @@ audio#apEl{width:100%;display:block}
       <canvas id="mWheelCvs" width="320" height="320"></canvas>
     </div>
     <div class="mob-result hidden" id="mobResult">—</div>
+    <!-- Zone quiz mobile — cachée par défaut, s'affiche quand un quiz est en cours -->
+    <div id="mobQuizZone" style="display:none;width:100%;padding:0 4px"></div>
     <div>
       <div class="mob-not-turn" id="mobNotTurn"></div>
       <div style="display:flex;flex-direction:column;align-items:center;gap:6px">
@@ -698,8 +709,9 @@ function defaultState() {
     bonusMultiplier: 1,
     letterType:   'C',  // C = consonne, V = voyelle
     event: {type:null, data:null, resolved:false},
-    timerEnd:    null,  // Date.now() + ms (null = pas de timer actif)
-    timerDur:    45,    // secondes configurées
+    timerEnd:    null,  // Date.now() + ms
+    timerDur:    45,
+    quizAnswers: {},    // {peerId: {teamIdx, answer, ts, correct}} — réponses quiz en temps réel
     quizBank:    QUIZ_INIT.map(q => ({...q, o:[...q.o]})),
     defiBank:    DEFI_INIT.map(d => ({...d})),
     usedQuizIdx: [],
@@ -709,6 +721,10 @@ function defaultState() {
     lastGain:    null,  // {teamIdx, amount, ts}
     gameOver:    false,
     ts:          0,
+    // Tirage au sort — synchronisé sur tous les écrans via state
+    drawAnim: {active:false, phase:'idle', currentTeam:0, winner:-1, startTs:0},
+    // Attribution automatique des équipes mobiles {peerId: teamIdx}
+    mobileAssignments: {},
   };
 }
 
@@ -786,9 +802,53 @@ function onBCMsg(e) {
       delete CONNECTIONS[msg.id];
       updateSyncBadge();
     }
+    if (msg.type === 'QUIZ_ANSWER') {
+      // Un mobile envoie sa réponse — seulement pendant un event quiz
+      if (S.phase !== 'event' || S.event.type !== 'quiz' || S.event.resolved) return;
+      if (msg.id in S.quizAnswers) return; // déjà répondu
+      const q = S.event.data;
+      const correct = msg.answer === q.c;
+      S.quizAnswers = {
+        ...S.quizAnswers,
+        [msg.id]: {teamIdx: msg.teamIdx, answer: msg.answer, ts: msg.ts, correct}
+      };
+      // Vérifier si toutes les équipes ont répondu
+      const teamsSeen = new Set(Object.values(S.quizAnswers).map(a => a.teamIdx));
+      const allDone = teamsSeen.size >= S.teams.length;
+      push(1);
+      if (allDone) {
+        setTimeout(() => autoResolveQuiz(), 800);
+      }
+    }
+    if (msg.type === 'RELEASE_TEAM') {
+      if (S.mobileAssignments && msg.id in S.mobileAssignments) {
+        const m = {...S.mobileAssignments};
+        delete m[msg.id];
+        S.mobileAssignments = m;
+        push(1);
+      }
+    }
     if (msg.type === 'SPIN_REQ') {
-      // Validation : bonne équipe, bonne phase
-      if (S.phase === 'idle' && msg.team === S.activeTeam) doSpin();
+      // Validation : bonne équipe, bonne phase, pas en animation
+      if (S.phase === 'idle' && !S.wheel.spinning && !S.drawAnim.active) {
+        const assigned = S.mobileAssignments[msg.id];
+        if (assigned !== undefined && assigned === S.activeTeam) doSpin();
+      }
+    }
+    if (msg.type === 'REQUEST_TEAM') {
+      // Attribution automatique — trouver une équipe libre
+      const taken = new Set(Object.values(S.mobileAssignments));
+      const free = S.teams.map((_,i)=>i).filter(i=>!taken.has(i));
+      if (free.length > 0) {
+        const idx = free[Math.floor(Math.random()*free.length)];
+        S.mobileAssignments = {...S.mobileAssignments, [msg.id]: idx};
+        push(2);
+      } else {
+        // Toutes prises — réattribuer quand même (mode spectateur)
+        const idx = Math.floor(Math.random()*S.teams.length);
+        S.mobileAssignments = {...S.mobileAssignments, [msg.id]: idx};
+        push(1);
+      }
     }
   } else {
     if (msg.type === 'STATE') {
@@ -850,9 +910,17 @@ function loadState() {
 /* Heartbeat */
 function sendHello() {
   bcast({type:'HELLO', id:_myPeerId, role: IS_DISP ? 'display' : 'mobile', team: _myTeam});
+  if (IS_MOBILE && _myTeam === null) {
+    // Demander attribution automatique
+    bcast({type:'REQUEST_TEAM', id:_myPeerId});
+  }
 }
 function sendHeartbeat() {
   bcast({type:'PING', id:_myPeerId, role: IS_DISP ? 'display' : 'mobile', team: _myTeam, ts: Date.now()});
+  // Rappeler la demande si pas encore attribué
+  if (IS_MOBILE && _myTeam === null && S.mobileAssignments && S.mobileAssignments[_myPeerId] === undefined) {
+    bcast({type:'REQUEST_TEAM', id:_myPeerId});
+  }
 }
 function sendBye() {
   bcast({type:'BYE', id:_myPeerId});
@@ -1018,16 +1086,19 @@ function startTimerLoop() {
 }
 
 function updateTimerDisplays() {
-  // Timer défi (timerEnd dans le state)
-  const defiEnd = S.timerEnd;
-  if (defiEnd) {
-    const rem = Math.max(0, defiEnd - Date.now());
+  // Timer quiz ou défi (timerEnd dans le state)
+  const end = S.timerEnd;
+  if (end) {
+    const rem = Math.max(0, end - Date.now());
     const secs = Math.ceil(rem / 1000);
-    // Display overlay timer
     const dOvTimer = document.getElementById('dOvTimer');
     if (dOvTimer && dOvTimer.style.display !== 'none') {
       dOvTimer.textContent = secs + 's';
       dOvTimer.className = 'd-ov-timer' + (secs <= 5 && secs > 0 ? ' urgent' : '');
+    }
+    // Forcer un render du quiz panel côté host pour màj le compte à rebours
+    if (IS_HOST && S.phase === 'event' && S.event.type === 'quiz') {
+      renderEventPanels();
     }
   }
 
@@ -1182,13 +1253,21 @@ function processResult(result) {
       const qi=pool[Math.floor(Math.random()*pool.length)];
       if(!S.usedQuizIdx.includes(qi)) S.usedQuizIdx.push(qi);
       const q=S.quizBank[qi];
+      const quizDuration = 45000; // 45 secondes
       go('event',{
         event:{type:'quiz',data:{...q,idx:qi},resolved:false},
-        overlay:{icon:q.e,title:'🧠 QUIZ !',sub:'+'+q.p+' pts pour la 1ere equipe !',quizQ:q.q,quizOpts:q.o},
-        timerEnd:null,
+        overlay:{icon:q.e,title:'🧠 QUIZ !',sub:'Répondez sur votre téléphone — '+q.p+' pts !',quizQ:q.q,quizOpts:q.o},
+        timerEnd: Date.now() + quizDuration,
+        quizAnswers: {},  // reset des réponses
       });
       snd('quiz');
       if(q.hasAudio) playAudio(qi);
+      // Auto-résolution après 45s
+      setTimeout(() => {
+        if (S.phase==='event' && S.event.type==='quiz' && !S.event.resolved) {
+          autoResolveQuiz();
+        }
+      }, quizDuration + 500);
       break;
     }
     case 'defi': {
@@ -1211,15 +1290,46 @@ function processResult(result) {
 
 /* MOBILE spin request */
 function mobSpin() {
-  bcast({type:'SPIN_REQ', team:_myTeam});
+  bcast({type:'SPIN_REQ', id:_myPeerId, team:_myTeam});
   const sb=document.getElementById('mobSpinBtn');
   if(sb) sb.disabled=true;
 }
 
 /* RESOLVE EVENT */
+/* AUTO-RÉSOLUTION QUIZ — première bonne réponse gagne */
+function autoResolveQuiz() {
+  if (!IS_HOST) return;
+  if (S.phase !== 'event' || S.event.type !== 'quiz' || S.event.resolved) return;
+
+  const answers = Object.values(S.quizAnswers || {});
+  // Trouver la première bonne réponse (timestamp le plus petit)
+  const correct = answers
+    .filter(a => a.correct)
+    .sort((a,b) => a.ts - b.ts);
+
+  if (correct.length > 0) {
+    const winner = correct[0];
+    resolveEvent(winner.teamIdx);
+  } else {
+    // Aucune bonne réponse
+    S.message = 'Aucune bonne réponse !';
+    S.overlay = {icon:'😅', title:'Aucune bonne réponse !',
+      sub:'La réponse était : '+S.event.data.o[S.event.data.c]};
+    push(2);
+    setTimeout(() => {
+      S.overlay = null;
+      S.event.resolved = true; S.timerEnd = null; S.quizAnswers = {};
+      go('resolve');
+      go('idle', {event:{type:null,data:null,resolved:false}});
+      push(1);
+    }, 3000);
+  }
+}
+
 function resolveEvent(winnerIdx) {
   if (S.phase !== 'event') return;
   stopAudio();
+  S.quizAnswers = {};
   if (winnerIdx === null) {
     S.message='Evenement passe.';
     S.event.resolved=true; S.timerEnd=null;
@@ -1597,7 +1707,6 @@ function testAudio(i) {
    §14  RENDER — déclenchement sur changement réel
 ═══════════════════════════════════════════════════════════ */
 function onStateChanged(prevTs) {
-  // Effets déclenchés par changement d'état (écrans esclaves)
   const pz = S.prevWheel || {};
   if (S.wheel.spinning && !pz.spinning) animSlaveWheel(S.wheel.spinTo);
   if (S.wheel.visible && !pz.visible) doRevealEffect();
@@ -1606,6 +1715,11 @@ function onStateChanged(prevTs) {
   }
   if (S.gameOver && !pz.gameOver) setTimeout(launchConfetti, 500);
   if (!S.gameOver && pz.gameOver) { stopConfetti(); const g=document.getElementById('dGo');if(g)g.classList.remove('show'); }
+  // Tirage au sort : reset du flag confetti quand nouvelle animation
+  if (IS_DISP && S.drawAnim) {
+    const ov = document.getElementById('dDrawOv');
+    if (ov && S.drawAnim.phase === 'running') ov.dataset.confettiDone = '';
+  }
 }
 
 function renderIfChanged() {
@@ -1745,16 +1859,39 @@ function renderEventPanels() {
   if(S.phase==='event'&&S.event.type==='quiz'&&!S.event.resolved){
     qp.style.display='block'; dp.style.display='none';
     const q=S.event.data;
-    document.getElementById('quizInfo').innerHTML='<b>'+q.e+' '+esc(q.q)+'</b><br>'
-      +q.o.map((o,i)=>'<span style="color:'+(i===q.c?'#22C55E':'rgba(255,255,255,.45)')+'">'+String.fromCharCode(65+i)+'. '+esc(o)+(i===q.c?' ✅':'')+'</span>').join('<br>');
-    document.getElementById('quizTeamBtns').innerHTML=S.teams.map((t,i)=>
-      '<button class="ev-team-btn" onclick="resolveEvent('+i+')">'
-      +'<span style="width:7px;height:7px;border-radius:50%;background:'+t.color+';display:inline-block;flex-shrink:0"></span>'
-      +esc(t.name)+' → +'+q.p+' pts</button>'
-    ).join('');
-    const apb=document.getElementById('audioPlayBtn'),asb=document.getElementById('audioStopBtn');
-    if(apb) apb.style.display=q.hasAudio?'inline-flex':'none';
-    if(asb) asb.style.display=q.hasAudio?'inline-flex':'none';
+    const answers = Object.values(S.quizAnswers||{});
+    const answered = answers.length;
+    const correctAnswers = answers.filter(a=>a.correct).sort((a,b)=>a.ts-b.ts);
+    const timeLeft = S.timerEnd ? Math.max(0,Math.ceil((S.timerEnd-Date.now())/1000)) : '—';
+
+    // Info question + bonne réponse visible pour animateur
+    document.getElementById('quizInfo').innerHTML=
+      '<b>'+q.e+' '+esc(q.q)+'</b><br>'
+      +q.o.map((o,i)=>'<span style="color:'+(i===q.c?'#22C55E':'rgba(255,255,255,.45)')+'">'+String.fromCharCode(65+i)+'. '+esc(o)+(i===q.c?' ✅':'')+'</span>').join('<br>')
+      // Suivi des réponses en temps réel
+      +'<div style="margin-top:8px;padding:6px 8px;background:rgba(255,255,255,.04);border-radius:6px">'
+      +'<div style="font-size:.58rem;color:rgba(255,255,255,.3);margin-bottom:4px">⏱ '+timeLeft+'s · Réponses reçues : '+answered+'/'+S.teams.length+'</div>'
+      +S.teams.map((t,i)=>{
+        const teamAnswer = answers.find(a=>a.teamIdx===i);
+        if (!teamAnswer) return '<span style="font-size:.6rem;color:rgba(255,255,255,.2)">◌ '+esc(t.name)+'</span>';
+        return '<span style="font-size:.6rem;color:'+(teamAnswer.correct?'#22C55E':'#EF4444')+'">'+(teamAnswer.correct?'✅':'❌')+' '+esc(t.name)+'</span>';
+      }).join(' · ')
+      +'</div>';
+
+    // Boutons d'attribution manuelle
+    document.getElementById('quizTeamBtns').innerHTML=
+      '<div style="font-size:.58rem;color:rgba(255,255,255,.3);margin-bottom:4px">Attribution manuelle (override) :</div>'
+      +S.teams.map((t,i)=>
+        '<button class="ev-team-btn" onclick="resolveEvent('+i+')">'
+        +'<span style="width:7px;height:7px;border-radius:50%;background:'+t.color+';display:inline-block;flex-shrink:0"></span>'
+        +esc(t.name)+' → +'+q.p+' pts</button>'
+      ).join('')
+      +(correctAnswers.length>0
+        ? '<button class="btn btn-sm btn-green btn-w" style="margin-top:6px" onclick="autoResolveQuiz()">⚡ Attribuer à '+esc(S.teams[correctAnswers[0].teamIdx]?.name||'?')+' (1ère bonne réponse)</button>'
+        : '');
+
+    const ac = document.getElementById('audioControls');
+    if (ac) ac.style.display = q.hasAudio ? 'block' : 'none';
   } else if(S.phase==='event'&&S.event.type==='defi'&&!S.event.resolved){
     dp.style.display='block'; qp.style.display='none';
     const d=S.event.data;
@@ -1764,7 +1901,10 @@ function renderEventPanels() {
       +'<span style="width:7px;height:7px;border-radius:50%;background:'+t.color+';display:inline-block;flex-shrink:0"></span>'
       +esc(t.name)+' → +'+d.p+' pts</button>'
     ).join('');
-  } else { qp.style.display='none'; dp.style.display='none'; }
+  } else { 
+    qp.style.display='none'; dp.style.display='none';
+    const ac=document.getElementById('audioControls'); if(ac) ac.style.display='none';
+  }
 }
 
 function renderBonusQPanel() {
@@ -1856,8 +1996,17 @@ function renderDisplay() {
     const ovTimer=document.getElementById('dOvTimer');
     if(S.overlay.quizQ){
       const opts=(S.overlay.quizOpts||[]).map((o,i)=>'<div class="ov-opt"><b>'+String.fromCharCode(65+i)+'.</b>'+esc(o)+'</div>').join('');
-      box.innerHTML='<div class="ov-q">'+esc(S.overlay.quizQ)+'</div>'+opts;
-      box.style.display='block'; ovTimer.style.display='none';
+      const answered = Object.keys(S.quizAnswers||{}).length;
+      const total = S.teams.length;
+      const progressBar = answered>0
+        ? '<div style="margin-top:12px;background:rgba(255,255,255,.08);border-radius:50px;height:6px;overflow:hidden">'
+          +'<div style="height:100%;background:var(--green);width:'+(answered/total*100)+'%;transition:width .3s;border-radius:50px"></div></div>'
+          +'<div style="font-size:.68rem;color:rgba(255,255,255,.4);margin-top:6px">'+answered+' / '+total+' équipes ont répondu</div>'
+        : '<div style="font-size:.72rem;color:rgba(255,255,255,.35);margin-top:10px">📱 Répondez sur votre téléphone !</div>';
+      box.innerHTML='<div class="ov-q">'+esc(S.overlay.quizQ)+'</div>'+opts+progressBar;
+      box.style.display='block';
+      if(S.timerEnd){ ovTimer.style.display='block'; }
+      else { ovTimer.style.display='none'; }
     } else if(S.overlay.defiText){
       box.innerHTML='<div class="ov-defi">'+esc(S.overlay.defiText)+'</div>';
       box.style.display='block';
@@ -1878,6 +2027,9 @@ function renderDisplay() {
   const go=document.getElementById('dGo');
   if(S.gameOver){go.classList.add('show');renderPodium();}
   else go.classList.remove('show');
+
+  // Animation tirage au sort
+  renderDrawAnim();
 }
 
 function renderPodium(){
@@ -1899,70 +2051,190 @@ function renderPodium(){
 }
 
 /* ─── RENDER MOBILE ─── */
-let _myTeam = null;
+let _myTeam = null;  // index équipe résolu localement depuis S.mobileAssignments
 
 function initMobile() {
-  const stored = localStorage.getItem('roue_v6b_myteam');
-  if (stored !== null) {
-    _myTeam = parseInt(stored);
-    showMobGame();
-  } else {
-    showMobPicker();
-  }
+  // Sur le mobile, on ne choisit PLUS manuellement
+  // On demande une attribution automatique au host
+  showMobWaiting();
+  sendHello();
+  setTimeout(()=>sendHello(), 800);
+  setTimeout(()=>sendHello(), 2000);
 }
-function showMobPicker() {
-  document.getElementById('mobPicker').style.display='flex';
-  document.getElementById('mobGame').style.display='none';
-  const list=document.getElementById('mobPickList');
-  list.innerHTML=S.teams.map((t,i)=>
-    '<button class="mob-team-btn" onclick="mobPickTeam('+i+')" style="border-color:'+t.color+'44;background:'+t.color+'12">'
-    +'<span style="width:12px;height:12px;border-radius:50%;background:'+t.color+';flex-shrink:0"></span>'
-    +esc(t.name)+'</button>'
-  ).join('');
+
+function showMobWaiting() {
+  // Masquer picker et game, afficher écran d'attente
+  const picker = document.getElementById('mobPicker');
+  const game   = document.getElementById('mobGame');
+  if (picker) picker.style.display = 'flex';
+  if (game)   game.style.display   = 'none';
+  const list = document.getElementById('mobPickList');
+  if (list) list.innerHTML =
+    '<div style="text-align:center;padding:20px">'
+    +'<div style="font-size:3rem;margin-bottom:14px">⏳</div>'
+    +'<div style="font-size:1rem;font-weight:700;color:var(--gold);margin-bottom:8px">Attribution en cours…</div>'
+    +'<div style="font-size:.75rem;color:rgba(255,255,255,.4);line-height:1.6">'
+    +'Votre équipe vous sera attribuée automatiquement.<br>'
+    +'Assurez-vous que l\'animateur a ouvert le jeu.</div>'
+    +'<div id="mobWaitDot" style="margin-top:16px;font-size:1.5rem">•</div>'
+    +'</div>';
+  // Animation d'attente
+  let dots = 0;
+  const dotEl = document.getElementById('mobWaitDot');
+  const dotInt = setInterval(()=>{
+    if(!document.getElementById('mobWaitDot')){clearInterval(dotInt);return;}
+    dots=(dots+1)%4;
+    if(dotEl) dotEl.textContent = '•'.repeat(dots+1);
+  }, 500);
 }
+
 function showMobGame() {
   document.getElementById('mobPicker').style.display='none';
   document.getElementById('mobGame').style.display='flex';
 }
-function mobPickTeam(idx) {
-  _myTeam=idx;
-  localStorage.setItem('roue_v6b_myteam',idx);
-  showMobGame(); sendHello();
-  setTimeout(()=>sendHello(),500);
-}
+
+// Ancienne fonction conservée pour compatibilité mais non utilisée
+function mobPickTeam(idx) { _myTeam=idx; showMobGame(); sendHello(); }
 function mobChangeTeam() {
   sendBye();
+  // Supprimer l'assignation dans le state (via message au host)
+  bcast({type:'RELEASE_TEAM', id:_myPeerId});
   _myTeam=null;
-  localStorage.removeItem('roue_v6b_myteam');
-  showMobPicker();
+  showMobWaiting();
+  setTimeout(()=>{ bcast({type:'REQUEST_TEAM', id:_myPeerId}); },300);
 }
 
 function renderMobile() {
-  if(!IS_MOBILE) return;
-  if(_myTeam===null){showMobPicker();return;}
-  const at=S.teams[S.activeTeam], myTeam=S.teams[_myTeam];
-  const isMyTurn=S.activeTeam===_myTeam;
-  const mn=document.getElementById('mobMyName');
-  if(mn&&myTeam){mn.textContent=myTeam.name;mn.style.color=myTeam.color;}
-  const tn=document.getElementById('mobTurnName');
-  if(tn){tn.textContent=at?at.name:'—';tn.style.color=at?at.color:'#fff';}
-  const phases={idle:'🎡 Pret a tourner !',spinning:'⏳ Rotation...',letter:'🔤 Lettre en cours',event:'🎯 Evenement',resolve:'✅ Resolution',roundEnd:'🏁 Fin de manche',gameEnd:'🏆 Fin de partie'};
-  const ph=document.getElementById('mobPhase');if(ph)ph.textContent=phases[S.phase]||S.phase;
-  const nmt=document.getElementById('mobNotTurn');
-  if(nmt)nmt.textContent=(!isMyTurn&&S.phase==='idle')?'Ce n\'est pas encore votre tour...':'';
-  const wr=S.wheel.result,res=document.getElementById('mobResult');
-  if(res){
-    if(S.phase==='spinning'||S.wheel.spinning){res.className='mob-result hidden';}
-    else if(wr&&S.wheel.visible){
-      const C={pts:'#FFD700',banqueroute:'#FCA5A5',passe:'#94A3B8',quiz:'#38BDF8',defi:'#A78BFA'};
-      res.style.color=C[wr.t]||'#fff';res.textContent=wr.t==='pts'?wr.v+' pts/lettre':wr.l;
-      res.className='mob-result reveal';
-    } else{res.className='mob-result';res.style.opacity='0';}
+  if (!IS_MOBILE) return;
+
+  // Résoudre l'équipe depuis le state
+  const assigned = S.mobileAssignments ? S.mobileAssignments[_myPeerId] : undefined;
+  if (assigned !== undefined && _myTeam !== assigned) {
+    _myTeam = assigned;
   }
-  // Bouton spin : actif UNIQUEMENT si c'est mon tour + phase idle
-  const sb=document.getElementById('mobSpinBtn');
-  if(sb) sb.disabled=!(isMyTurn&&S.phase==='idle'&&!S.wheel.spinning);
-  if(!_sAnim) drawWheel(document.getElementById('mWheelCvs'),_sAngle);
+
+  if (_myTeam === null || _myTeam === undefined) {
+    showMobWaiting();
+    return;
+  }
+
+  showMobGame();
+
+  const at = S.teams[S.activeTeam];
+  const myTeam = S.teams[_myTeam];
+  const isMyTurn = S.activeTeam === _myTeam && !S.drawAnim.active;
+
+  const mn = document.getElementById('mobMyName');
+  if (mn && myTeam) { mn.textContent = myTeam.name; mn.style.color = myTeam.color; }
+
+  const tn = document.getElementById('mobTurnName');
+  if (tn) { tn.textContent = at ? at.name : '—'; tn.style.color = at ? at.color : '#fff'; }
+
+  const phases = {
+    idle:'🎡 Prêt à tourner !', spinning:'⏳ Rotation…',
+    letter:'🔤 Lettre en cours', event:'🎯 Événement',
+    resolve:'✅ Résolution', roundEnd:'🏁 Fin de manche', gameEnd:'🏆 Fin de partie'
+  };
+  const ph = document.getElementById('mobPhase');
+  if (ph) {
+    if (S.drawAnim.active) ph.textContent = '🎲 Tirage en cours…';
+    else ph.textContent = phases[S.phase] || S.phase;
+  }
+
+  const nmt = document.getElementById('mobNotTurn');
+  if (nmt) nmt.textContent = (!isMyTurn && S.phase==='idle' && !S.drawAnim.active) ? 'Ce n\'est pas encore votre tour…' : '';
+
+  // Résultat roue — suspense
+  const wr = S.wheel.result;
+  const res = document.getElementById('mobResult');
+  if (res) {
+    if (S.phase==='spinning' || S.wheel.spinning) { res.className='mob-result hidden'; }
+    else if (wr && S.wheel.visible) {
+      const C = {pts:'#FFD700',banqueroute:'#FCA5A5',passe:'#94A3B8',quiz:'#38BDF8',defi:'#A78BFA'};
+      res.style.color = C[wr.t]||'#fff';
+      res.textContent = wr.t==='pts' ? wr.v+' pts/lettre' : wr.l;
+      res.className = 'mob-result reveal';
+    } else { res.className='mob-result'; res.style.opacity='0'; }
+  }
+
+  // Bouton TOURNER : actif UNIQUEMENT si c'est mon tour + idle + pas de tirage
+  const sb = document.getElementById('mobSpinBtn');
+  if (sb) sb.disabled = !(isMyTurn && S.phase==='idle' && !S.wheel.spinning && !S.drawAnim.active);
+
+  // Quiz sur mobile — afficher les options si quiz en cours
+  renderMobQuiz();
+
+  if (!_sAnim) drawWheel(document.getElementById('mWheelCvs'), _sAngle);
+}
+
+function renderMobQuiz() {
+  const qz = document.getElementById('mobQuizZone');
+  if (!qz) return;
+  const hasAnswered = S.quizAnswers && _myPeerId in S.quizAnswers;
+  const isQuiz = S.phase === 'event' && S.event.type === 'quiz' && !S.event.resolved;
+
+  if (!isQuiz) { qz.style.display = 'none'; return; }
+  qz.style.display = 'block';
+
+  const q = S.event.data;
+  const myAnswer = hasAnswered ? S.quizAnswers[_myPeerId].answer : null;
+  const timeLeft = S.timerEnd ? Math.max(0, Math.ceil((S.timerEnd - Date.now()) / 1000)) : 45;
+
+  // Compter les réponses reçues
+  const answered = Object.values(S.quizAnswers || {}).length;
+  const total = S.teams.length;
+
+  let html = '<div style="font-size:.65rem;color:rgba(255,255,255,.4);text-align:center;margin-bottom:6px">'
+    + '⏱ '+timeLeft+'s · '+answered+'/'+total+' équipes ont répondu'
+    + '</div>';
+  html += '<div style="font-size:.82rem;font-weight:700;color:#fff;text-align:center;margin-bottom:12px;line-height:1.4">'+esc(q.q)+'</div>';
+
+  if (hasAnswered) {
+    const correct = S.quizAnswers[_myPeerId].correct;
+    const chosenLabel = q.o[myAnswer];
+    html += '<div style="text-align:center;padding:16px;border-radius:12px;background:'+(correct?'rgba(34,197,94,.15)':'rgba(239,68,68,.15)')+';border:2px solid '+(correct?'rgba(34,197,94,.4)':'rgba(239,68,68,.4)')+';">'
+      +'<div style="font-size:2rem">'+(correct?'✅':'❌')+'</div>'
+      +'<div style="font-size:.85rem;font-weight:700;color:'+(correct?'var(--green)':'var(--red)');+';margin-top:6px">'+(correct?'Bonne réponse !':'Mauvaise réponse…')+'</div>'
+      +'<div style="font-size:.72rem;color:rgba(255,255,255,.5);margin-top:4px">Votre réponse : '+esc(chosenLabel)+'</div>'
+      +'<div style="font-size:.68rem;color:rgba(255,255,255,.3);margin-top:8px">En attente des autres équipes…</div>'
+      +'</div>';
+  } else {
+    // Boutons A/B/C/D
+    const colors = ['#00AAAF','#F97316','#22C55E','#9333EA'];
+    html += '<div style="display:flex;flex-direction:column;gap:10px">';
+    q.o.forEach((opt, i) => {
+      html += '<button onclick="mobAnswerQuiz('+i+')" '
+        +'style="width:100%;padding:14px 16px;border-radius:12px;border:2px solid '+colors[i]+'44;background:'+colors[i]+'18;'
+        +'color:#fff;font-size:.9rem;font-weight:700;cursor:pointer;text-align:left;display:flex;align-items:center;gap:10px;transition:all .15s">'
+        +'<span style="width:28px;height:28px;border-radius:50%;background:'+colors[i]+';display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:900;flex-shrink:0">'+String.fromCharCode(65+i)+'</span>'
+        +esc(opt)
+        +'</button>';
+    });
+    html += '</div>';
+  }
+
+  qz.innerHTML = html;
+}
+
+function mobAnswerQuiz(answerIdx) {
+  if (!IS_MOBILE) return;
+  if (_myTeam === null) return;
+  if (S.phase !== 'event' || S.event.type !== 'quiz') return;
+  if (S.quizAnswers && _myPeerId in S.quizAnswers) return; // déjà répondu
+  bcast({
+    type: 'QUIZ_ANSWER',
+    id: _myPeerId,
+    teamIdx: _myTeam,
+    answer: answerIdx,
+    ts: Date.now(),
+  });
+  // Optimistic local update pour l'UX immédiate
+  const q = S.event.data;
+  S.quizAnswers = {
+    ...(S.quizAnswers||{}),
+    [_myPeerId]: {teamIdx:_myTeam, answer:answerIdx, ts:Date.now(), correct: answerIdx===q.c}
+  };
+  renderMobQuiz();
 }
 
 /* ─── RENDER QD ─── */
@@ -2276,99 +2548,149 @@ function handleShowQR(url) {
 /* Les messages QR sont gérés directement dans onBCMsg ci-dessus */
 
 /* ═══════════════════════════════════════════════════════════
-   QUI COMMENCE ? — Tirage au sort animé
+   QUI COMMENCE ? — Tirage au sort state-driven (synchronisé sur tous les écrans)
+   La logique tourne sur le HOST, l'état est pushé toutes les ~80ms
+   Le DISPLAY rend l'animation depuis l'état
 ═══════════════════════════════════════════════════════════ */
-let _qcRAF = null, _qcWinner = null, _qcRunning = false;
+let _qcRunning = false;
+let _qcInterval = null;
 
 function openQuiCommence() {
+  if (!IS_HOST) return;
+  // Réinitialiser l'état du tirage
+  S.drawAnim = {active:false, phase:'idle', currentTeam:0, winner:-1, startTs:0};
+  push(1);
+  // Ouvrir le modal côté host
   const modal = document.getElementById('qcModal');
-  modal.style.display = 'flex';
-  _qcWinner = null; _qcRunning = false;
-  if(_qcRAF){cancelAnimationFrame(_qcRAF);_qcRAF=null;}
-  document.getElementById('qcStartBtn').style.display = 'inline-flex';
-  document.getElementById('qcConfirmBtn').style.display = 'none';
-  document.getElementById('qcStatus').textContent = 'Appuyez sur "Lancer" pour désigner l\'équipe qui commence !';
-  // Afficher la 1ère équipe
-  const d = document.getElementById('qcTeamDisplay');
-  const t = S.teams[0];
-  d.textContent = t.name; d.style.color = t.color;
-  drawQCBar(0);
+  if (modal) modal.style.display = 'flex';
+  renderQCModal();
 }
 
 function closeQuiCommence() {
-  if(_qcRAF){cancelAnimationFrame(_qcRAF);_qcRAF=null;}
-  document.getElementById('qcModal').style.display = 'none';
+  if (_qcInterval) { clearInterval(_qcInterval); _qcInterval=null; }
+  _qcRunning = false;
+  S.drawAnim = {active:false, phase:'idle', currentTeam:0, winner:-1, startTs:0};
+  push(1);
+  const modal = document.getElementById('qcModal');
+  if (modal) modal.style.display = 'none';
 }
 
-function drawQCBar(progress) {
-  const cvs = document.getElementById('qcBar'); if(!cvs) return;
-  const ctx = cvs.getContext('2d'), W=cvs.width, H=cvs.height;
-  ctx.clearRect(0,0,W,H);
-  ctx.fillStyle = 'rgba(255,255,255,.1)'; ctx.fillRect(0,0,W,H);
-  if(progress>0){
-    const grad = ctx.createLinearGradient(0,0,W,0);
-    grad.addColorStop(0,'var(--teal)'); grad.addColorStop(1,'var(--gold)');
-    ctx.fillStyle = grad; ctx.fillRect(0,0,W*progress,H);
+function renderQCModal() {
+  const d = document.getElementById('qcTeamDisplay');
+  const status = document.getElementById('qcStatus');
+  const startBtn = document.getElementById('qcStartBtn');
+  const confirmBtn = document.getElementById('qcConfirmBtn');
+  if (!d) return;
+  if (S.drawAnim.phase === 'idle') {
+    const t = S.teams[0];
+    d.textContent = t.name; d.style.color = t.color;
+    d.style.fontSize = ''; d.style.textShadow = '';
+    if (status) status.textContent = 'Appuyez sur "Lancer" pour désigner qui commence !';
+    if (startBtn) startBtn.style.display = 'inline-flex';
+    if (confirmBtn) confirmBtn.style.display = 'none';
+  } else if (S.drawAnim.phase === 'done') {
+    const winner = S.teams[S.drawAnim.winner];
+    d.textContent = winner.name; d.style.color = winner.color;
+    d.style.fontSize = 'clamp(3rem,10vw,6rem)';
+    d.style.textShadow = '0 0 40px '+winner.color+'88';
+    if (status) status.innerHTML = '<span style="font-size:1.1rem;font-weight:700;color:'+winner.color+'">🎉 '+winner.name+' commence !</span>';
+    if (startBtn) startBtn.style.display = 'none';
+    if (confirmBtn) confirmBtn.style.display = 'inline-flex';
   }
 }
 
 function startDraw() {
-  if(_qcRunning) return;
+  if (_qcRunning) return;
   _qcRunning = true;
-  document.getElementById('qcStartBtn').style.display = 'none';
-  document.getElementById('qcStatus').textContent = '🎰 Tirage en cours…';
 
-  // Choisir le gagnant maintenant (avant l'animation)
-  _qcWinner = Math.floor(Math.random() * S.teams.length);
-
-  const totalMs = 3500; // durée totale
+  const winner = Math.floor(Math.random() * S.teams.length);
+  const totalMs = 4000;
   const startTs = Date.now();
-  const d = document.getElementById('qcTeamDisplay');
-  let lastIdx = -1;
 
-  function frame() {
+  S.drawAnim = {active:true, phase:'running', currentTeam:0, winner, startTs};
+  push(2);
+
+  // Pousser l'état toutes les 80ms pour animer le display
+  _qcInterval = setInterval(() => {
     const elapsed = Date.now() - startTs;
     const progress = Math.min(elapsed / totalMs, 1);
-    // Ralentissement exponentiel
-    const speed = Math.max(1, Math.pow(1-progress, 2) * 18 + 1);
-    const idx = Math.floor((elapsed / speed / 100)) % S.teams.length;
+    // Ralentissement : fréquence décroissante
+    const period = 60 + progress * progress * 600; // 60ms → 660ms
+    const currentTeam = Math.floor(elapsed / period) % S.teams.length;
 
-    if(idx !== lastIdx){
-      const t = S.teams[idx];
-      d.textContent = t.name;
-      d.style.color = t.color;
-      d.style.transform = 'scale(1.05)';
-      setTimeout(()=>{if(d) d.style.transform='scale(1)';},60);
-      lastIdx = idx;
+    S.drawAnim = {...S.drawAnim, currentTeam, startTs};
+    S.ts = Date.now();
+    // Push léger (localStorage + broadcast, sans renderIfChanged côté host)
+    try {
+      localStorage.setItem(SK, JSON.stringify(S));
+      localStorage.setItem(TK, S.ts.toString());
+    } catch(e) {}
+    bcast({type:'STATE', state:S, prevTs:0});
+
+    // Màj du modal côté host
+    const d = document.getElementById('qcTeamDisplay');
+    if (d) {
+      const t = S.teams[currentTeam];
+      d.textContent = t.name; d.style.color = t.color;
     }
-    drawQCBar(progress);
+    const status = document.getElementById('qcStatus');
+    if (status) status.textContent = '🎰 Tirage en cours… ' + Math.round(progress*100) + '%';
 
-    if(progress < 1){
-      _qcRAF = requestAnimationFrame(frame);
-    } else {
-      // Révéler le vainqueur
-      const winner = S.teams[_qcWinner];
-      d.textContent = winner.name;
-      d.style.color = winner.color;
-      d.style.fontSize = 'clamp(3rem,10vw,6rem)';
-      d.style.textShadow = '0 0 40px '+winner.color+'88';
-      drawQCBar(1);
-      document.getElementById('qcStatus').innerHTML =
-        '<span style="font-size:1.1rem;font-weight:700;color:'+winner.color+'">🎉 '+winner.name+' commence !</span>';
-      document.getElementById('qcConfirmBtn').style.display = 'inline-flex';
+    if (progress >= 1) {
+      clearInterval(_qcInterval); _qcInterval = null;
       _qcRunning = false;
-      // Mini-confetti
-      miniConfetti(winner.color);
+      S.drawAnim = {active:true, phase:'done', currentTeam:winner, winner, startTs};
+      push(2);
+      renderQCModal();
+      miniConfetti(S.teams[winner].color);
     }
-  }
-  _qcRAF = requestAnimationFrame(frame);
+  }, 80);
 }
 
 function confirmDraw() {
-  if(_qcWinner === null) return;
-  S.activeTeam = _qcWinner;
-  push(1);
-  closeQuiCommence();
+  const winner = S.drawAnim.winner;
+  if (winner < 0) return;
+  S.activeTeam = winner;
+  S.drawAnim = {active:false, phase:'idle', currentTeam:0, winner:-1, startTs:0};
+  push(2);
+  const modal = document.getElementById('qcModal');
+  if (modal) modal.style.display = 'none';
+}
+
+/* Rendu de l'animation QUI COMMENCE sur l'écran de projection */
+function renderDrawAnim() {
+  if (!IS_DISP) return;
+  const ov = document.getElementById('dDrawOv');
+  if (!ov) return;
+
+  if (!S.drawAnim || !S.drawAnim.active) {
+    ov.style.display = 'none';
+    return;
+  }
+
+  ov.style.display = 'flex';
+  const nameEl = document.getElementById('dDrawName');
+  const statusEl = document.getElementById('dDrawStatus');
+
+  if (S.drawAnim.phase === 'running') {
+    const t = S.teams[S.drawAnim.currentTeam];
+    if (nameEl) { nameEl.textContent = t.name; nameEl.style.color = t.color; nameEl.style.fontSize=''; nameEl.style.textShadow=''; }
+    if (statusEl) statusEl.textContent = '🎰 Tirage en cours…';
+  } else if (S.drawAnim.phase === 'done') {
+    const winner = S.teams[S.drawAnim.winner];
+    if (nameEl) {
+      nameEl.textContent = winner.name;
+      nameEl.style.color = winner.color;
+      nameEl.style.fontSize = 'clamp(4rem,12vw,8rem)';
+      nameEl.style.textShadow = '0 0 60px '+winner.color+', 0 0 120px '+winner.color+'55';
+    }
+    if (statusEl) statusEl.innerHTML = '🎉 <b>'+esc(winner.name)+'</b> commence la partie !';
+    // Lancer les confettis sur la projection aussi
+    if (!ov.dataset.confettiDone) {
+      ov.dataset.confettiDone = '1';
+      miniConfetti(winner.color);
+    }
+  }
 }
 
 function miniConfetti(color) {
