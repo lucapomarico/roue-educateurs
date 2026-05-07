@@ -1196,7 +1196,12 @@ function doUndo() {
 /* SPIN */
 function doSpin() {
   if(_hRunning||S.wheel.spinning)return;
-  if(S.phase!=='idle'){return;}
+  if(S.phase!=='idle')return;
+  // Bloquer si plus aucune consonne cachée
+  if(noConsLeft()){
+    alert('⚠️ Plus aucune consonne cachée !\nProposez une voyelle (−250 pts) ou résolvez la phrase.');
+    return;
+  }
   saveUndo();
   const idx=Math.floor(Math.random()*WSEG_N);
   const res=WSEG[idx], target=spinTarget(idx);
@@ -1724,17 +1729,32 @@ function renderHost(){
   const phases={idle:'🎡 Tourner la roue',spinning:'⏳ Rotation…',letter:'🔤 Proposer une lettre',event:'🎯 Événement',resolve:'✅ Résolution',gameEnd:'🏆 Partie terminée'};
   const pb=document.getElementById('hPhase');if(pb)pb.textContent=phases[S.phase]||S.phase;
   const ml=document.getElementById('hManche');if(ml)ml.textContent='M'+(S.manche+1)+'/4';
-  // Roue badge
+  // Roue badge + état visuel canvas
   const wr=S.wheel.result, wb=document.getElementById('hWrBadge');
-  const hc=document.getElementById('hWheelCvs');if(hc)hc.classList.toggle('spin',_hRunning);
+  const hc=document.getElementById('hWheelCvs');
+  const nc=noConsLeft();
+  if(hc){
+    hc.classList.toggle('spin',_hRunning);
+    // Griser la roue si plus de consonnes (non cliquable visuellement)
+    hc.style.opacity = (nc && S.phase==='idle' && !wr) ? '0.35' : '';
+    hc.style.cursor  = (nc && S.phase==='idle' && !wr) ? 'not-allowed' : '';
+  }
   if(wb){
     const BG={pts:'rgba(0,170,175,.12)',banqueroute:'rgba(220,38,38,.14)',passe:'rgba(51,65,85,.5)',quiz:'rgba(12,74,110,.18)',defi:'rgba(91,33,182,.18)'};
     const COL={pts:'#FFD700',banqueroute:'#FCA5A5',passe:'#94A3B8',quiz:'#38BDF8',defi:'#A78BFA'};
-    if(wr){wb.style.background=BG[wr.t]||'';wb.style.color=COL[wr.t]||'#fff';wb.style.borderColor=(COL[wr.t]||'#fff')+'33';wb.textContent=wr.t==='pts'?wr.v+' pts / lettre':'▶ '+wr.l;}
-    else{wb.style.cssText='background:var(--dim);color:rgba(255,255,255,.24);border-color:transparent';wb.textContent=S.phase==='spinning'?'⏳ Rotation…':'Cliquer pour tourner';}
+    if(wr){
+      wb.style.background=BG[wr.t]||'';wb.style.color=COL[wr.t]||'#fff';
+      wb.style.borderColor=(COL[wr.t]||'#fff')+'33';
+      wb.textContent=wr.t==='pts'?wr.v+' pts / lettre':'▶ '+wr.l;
+    } else if(nc && S.phase==='idle'){
+      wb.style.cssText='background:rgba(255,215,0,.08);color:var(--gold);border-color:rgba(255,215,0,.25)';
+      wb.textContent='⚠️ Roue désactivée';
+    } else {
+      wb.style.cssText='background:var(--dim);color:rgba(255,255,255,.24);border-color:transparent';
+      wb.textContent=S.phase==='spinning'?'⏳ Rotation…':'Cliquer pour tourner';
+    }
   }
   // Letter hint
-  const nc=noConsLeft();
   const hint=document.getElementById('hLetterHint');
   if(hint){
     if(nc&&S.phase!=='gameEnd')hint.innerHTML='<span style="color:var(--gold);font-weight:700">⚠️ Plus aucune consonne — voyelles ou résolution !</span>';
